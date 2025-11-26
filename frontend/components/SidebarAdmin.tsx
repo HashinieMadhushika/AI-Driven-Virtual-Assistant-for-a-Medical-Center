@@ -1,84 +1,57 @@
-'use client'
-import React from 'react'
-import Link from 'next/link'
-import {
-  LayoutDashboard,
-  CalendarDays,
-  MessageSquare,
-  FileText,
-  Users,
-  UserCircle2,
-} from 'lucide-react'
+import React, { useState } from 'react';
+import { LayoutDashboard, Calendar, MessageSquare, Clock, Users, UserCog } from 'lucide-react';
 
-export default function SidebarAdmin() {
-  const [active, setActive] = React.useState('Dashboard')
+interface SidebarAdminProps {
+  defaultActive?: string;
+}
 
-  const menus = [
-    { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/admin/dashboard' },
-    { name: 'Appointments', icon: <CalendarDays size={20} />, path: '/admin/appointments' },
-    { name: 'Active Conversation', icon: <MessageSquare size={20} />, path: '/admin/conversations' },
-    { name: 'Chat History', icon: <FileText size={20} />, path: '/admin/chats' },
-    { name: 'Patients', icon: <Users size={20} />, path: '/admin/patients' },
-    { name: 'Doctors', icon: <UserCircle2 size={20} />, path: '/admin/doctors' },
-  ]
+const SidebarAdmin: React.FC<SidebarAdminProps> = ({ 
+  defaultActive = "chat-history"
+}) => {
+  const [activeItem, setActiveItem] = useState(defaultActive);
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'active-conversation', label: 'Active Conversation', icon: MessageSquare },
+    { id: 'chat-history', label: 'Chat History', icon: Clock },
+    { id: 'patients', label: 'Patients', icon: Users },
+    { id: 'doctors', label: 'Doctors', icon: UserCog },
+  ];
+
+  const handleClick = (itemId: string) => {
+    setActiveItem(itemId);
+    // Add your navigation logic here
+    console.log('Navigating to:', itemId);
+  };
 
   return (
-    <aside
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        height: '100vh',
-        width: '220px',
-        background: 'linear-gradient(to bottom, #f8fafc, #e0f2fe)',
-        padding: '1.2rem',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-      }}
-    >
-      {/* Logo */}
-      <div className="mb-8 w-full text-center">
-        <h2 className="text-lg font-semibold text-cyan-700 tracking-wide">ADMIN</h2>
-        <p className="text-xs text-gray-500">MediCare AI System</p>
-      </div>
-
-      {/* Navigation */}
-      <nav
-        style={{
-          width: '100%',
-          backgroundColor: 'white',
-          borderRadius: '1rem',
-          padding: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e7eb',
-        }}
-      >
-        {menus.map((menu) => (
-          <Link
-            key={menu.name}
-            href={menu.path}
-            onClick={() => setActive(menu.name)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              backgroundColor: active === menu.name ? '#0891b2' : 'transparent',
-              color: active === menu.name ? 'white' : '#334155',
-              textDecoration: 'none',
-              transition: '0.2s',
-              fontSize: '0.9rem',
-              fontWeight: 500,
-              marginBottom: '0.25rem',
-            }}
-          >
-            {menu.icon}
-            <span>{menu.name}</span>
-          </Link>
-        ))}
+    <aside className="bg-white w-48 min-h-screen border-r border-gray-200">
+      <nav className="pt-4 px-3">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeItem === item.id;
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleClick(item.id)}
+              className={`
+                w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-normal transition-all mb-1
+                ${isActive 
+                  ? 'bg-teal-600 text-white' 
+                  : 'text-gray-700 hover:bg-gray-50'
+                }
+              `}
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </aside>
-  )
-}
+  );
+};
+
+export default SidebarAdmin;
