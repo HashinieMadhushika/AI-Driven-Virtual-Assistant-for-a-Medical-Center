@@ -1,16 +1,16 @@
-const express = require("express");
-const {
-  addDoctor,
+import express from "express";
+import {
+  createDoctor,
   getDoctors,
   updateDoctor,
   deleteDoctor,
-} = require("./controllers/doctorController");
+} from "../controllers/doctorController.js";
 
 const router = express.Router();
 
-router.post("/", addDoctor);
+router.post("/", createDoctor);
 router.get("/", getDoctors);
 router.put("/:id", updateDoctor);
 router.delete("/:id", deleteDoctor);
 
-module.exports = router;
+export default router;
