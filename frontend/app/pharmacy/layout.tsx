@@ -1,7 +1,7 @@
 // app/pharmacy/layout.tsx
 "use client";
 import React from "react";
-import SidebarPharmacy from "../../components/SidbarPharmacy";
+import SidebarPharmacy from "../../admincomponents/SidbarPharmacy";
 
 export default function PharmacyLayout({
   children,
