@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables - NEVER commit these!
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env
+
+# Production
+build/
+dist/
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Temporary files
+*.tmp
+*.bak
