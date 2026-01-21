@@ -75,9 +75,7 @@ export const doctorLogin = async (req, res) => {
     console.error('Doctor login error:', error);
     res.status(500).json({ message: 'Error logging in', error: error.message });
   }
-};
-
-// Get doctor profile (authenticated)
+};// Get doctor profile (authenticated)
 export const getDoctorProfile = async (req, res) => {
   try {
     const doctor = await Doctor.findByPk(req.user.id, {

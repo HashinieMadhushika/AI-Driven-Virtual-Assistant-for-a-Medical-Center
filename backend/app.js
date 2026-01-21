@@ -17,15 +17,28 @@ import User from './src/models/User.js';
 import Doctor from './src/models/Doctor.js';
 import Patient from './src/models/Patient.js';
 import Appointment from './src/models/Appointment.js';
+
+// Define model relationships
+Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });
+Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
+Patient.hasMany(Appointment, { foreignKey: 'patientId' });
+Appointment.belongsTo(Patient, { foreignKey: 'patientId' });
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+// CORS (Next.js on localhost:3000)
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // Test route
-app.get('/api/test', (req, res) => {
-  res.json({ msg: 'Backend is running!' });
+app.get("/api/test", (req, res) => {
+  res.json({ msg: "Backend is running!" });
 });
 
 // Auth routes
@@ -40,33 +53,37 @@ app.use('/api/appointments', appointmentRoutes);
 // Sync DB and start server
 (async () => {
   try {
+    console.log('🔧 Starting database sync...');
+    // Sync database - alter mode preserves existing data
     await sequelize.sync({ alter: true });
-    console.log('✅ PostgreSQL connected via Sequelize');
+    
     console.log('✅ Database synced successfully');
+    console.log('✅ All models ready');
+    console.log('🚀 Starting Express server...');
     
     // Start server
     const server = app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`✅ Server running on http://localhost:${PORT}`);
+      console.log('📍 Press Ctrl+C to stop the server');
     });
-    
-    server.on('error', (error) => {
-      console.error('❌ Server error:', error);
+
+    server.on('error', (err) => {
+      console.error('❌ Server error:', err);
+      process.exit(1);
     });
-    
+
+    // Add process-level error handlers
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('❌ Unhandled Rejection:', reason);
+    });
+
+    process.on('uncaughtException', (err) => {
+      console.error('❌ Uncaught Exception:', err);
+      process.exit(1);
+    });
+
   } catch (err) {
-    console.error('❌ Error:', err);
+    console.error('❌ Sync error:', err);
     process.exit(1);
   }
 })();
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-});
-
- 
