@@ -32,8 +32,7 @@ const sequelize = new Sequelize(
   }
 );
 
-sequelize.authenticate()
-  .then(() => console.log('✅ PostgreSQL connected via Sequelize'))
-  .catch(err => console.error('❌ Sequelize connection error:', err));
+// Remove the .authenticate() call that runs on import
+// We'll handle connection testing in app.js instead
 
 export default sequelize;
