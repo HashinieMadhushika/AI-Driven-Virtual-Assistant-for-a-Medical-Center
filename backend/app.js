@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // src/app.js
 import express from 'express';
 import dotenv from 'dotenv';
@@ -24,18 +23,7 @@ Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });
 Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
 Patient.hasMany(Appointment, { foreignKey: 'patientId' });
 Appointment.belongsTo(Patient, { foreignKey: 'patientId' });
-=======
-import express from "express";
-import dotenv from "dotenv";
-import cors from "cors";
 
-import authRoutes from "./src/routes/authRoutes.js";
-import sequelize from "./src/config/db.js";
-import doctorRoutes from "./src/routes/doctorRoutes.js";
-
-dotenv.config();
-
->>>>>>> 370cb08690ba6cd40d2491002f59f61ec0cc2e61
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -55,7 +43,6 @@ app.get("/api/test", (req, res) => {
 });
 
 // Auth routes
-<<<<<<< HEAD
 app.use('/api/auth', authRoutes);
 // Doctor routes
 app.use('/api/doctors', doctorRoutes);
@@ -101,19 +88,3 @@ app.use('/api/appointments', appointmentRoutes);
     process.exit(1);
   }
 })();
-=======
-app.use("/api/auth", authRoutes);
-app.use("/api/doctors", doctorRoutes);
-
-
-// Sync DB
-sequelize
-  .sync({ alter: true })
-  .then(() => console.log("✅ All models synced"))
-  .catch((err) => console.error("❌ Sync error:", err));
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
->>>>>>> 370cb08690ba6cd40d2491002f59f61ec0cc2e61

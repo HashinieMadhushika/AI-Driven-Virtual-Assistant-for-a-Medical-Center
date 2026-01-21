@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 
@@ -71,16 +70,3 @@ const Doctor = sequelize.define('Doctor', {
 });
 
 export default Doctor;
-=======
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db");
-
-const Doctor = sequelize.define("Doctor", {
-  name: DataTypes.STRING,
-  specialization: DataTypes.STRING,
-  designation: DataTypes.STRING,
-  availableTimes: DataTypes.JSON
-});
-
-module.exports = Doctor;
->>>>>>> 370cb08690ba6cd40d2491002f59f61ec0cc2e61
