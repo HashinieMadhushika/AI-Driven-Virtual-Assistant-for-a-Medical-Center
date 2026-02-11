@@ -1,43 +1,36 @@
-import jwt from 'jsonwebtoken';
-import Doctor from '../models/Doctor.js';
+// src/middleware/auth.js
+import jwt from 'jsonwebtoken'
 
-export const authenticateDoctor = async (req, res, next) => {
+export const authenticateToken = (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+    const authHeader = req.headers.authorization
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : null
+
     if (!token) {
-      return res.status(401).json({ message: 'No authentication token provided' });
+      return res.status(401).json({ message: 'Access token required' })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const doctor = await Doctor.findByPk(decoded.id);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-    if (!doctor) {
-      return res.status(401).json({ message: 'Doctor not found' });
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
     }
 
-    req.doctor = doctor;
-    req.doctorId = doctor.id;
-    next();
-  } catch (error) {
-    res.status(401).json({ message: 'Please authenticate', error: error.message });
+    next()
+  } catch (err) {
+    return res.status(403).json({ message: 'Invalid or expired token' })
   }
-};
+}
 
-export const authenticateUser = async (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ message: 'No authentication token provided' });
+export const authorizeRole = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user?.role || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Insufficient permissions' })
     }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id;
-    req.userRole = decoded.role;
-    
-    next();
-  } catch (error) {
-    res.status(401).json({ message: 'Please authenticate', error: error.message });
+    next()
   }
-};
+}
