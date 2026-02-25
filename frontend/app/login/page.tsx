@@ -17,54 +17,60 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   const canSubmit = useMemo(() => {
-    if (!role || !email || !password) return false
+    if (!email || !password) return false
     if (password.length < 6) return false
     return true
-  }, [role, email, password])
-
-  const goHome = () => router.push('/')
+  }, [email, password])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
     if (!canSubmit) {
-      setError('Please enter role, email, and password.')
+      setError('Please enter email and password (min 6 characters).')
       return
     }
 
     setLoading(true)
     try {
-      // Determine endpoint based on role
-      const endpoint = role === 'doctor' 
-        ? 'http://localhost:5000/api/doctors/login'
-        : 'http://localhost:5000/api/auth/login'
+      // ✅ Role-based endpoint
+      const endpoint =
+        role === 'doctor'
+          ? 'http://localhost:5000/api/doctors/login'
+          : 'http://localhost:5000/api/auth/login'
 
-      const response = await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
+      const data = await res.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed')
+      if (!res.ok) {
+        throw new Error(data?.message || data?.msg || 'Login failed')
       }
 
-      // Store token and user data
-      localStorage.setItem('token', data.token)
-      
-      if (role === 'doctor') {
-        localStorage.setItem('user', JSON.stringify(data.doctor))
-        localStorage.setItem('userRole', 'doctor')
-        router.push('/doctor/dashboard')
-      } else {
-        localStorage.setItem('user', JSON.stringify(data.user || data.admin))
-        localStorage.setItem('userRole', 'admin')
+      const token = data?.token
+      if (!token) throw new Error('Token missing from response')
+      localStorage.setItem('token', token)
+
+      // ✅ Redirect based on selected role (and verify backend)
+      if (role === 'admin') {
+        const backendRole = data?.user?.role
+        if (backendRole && backendRole !== 'admin') {
+          throw new Error('This account is not an admin account.')
+        }
         router.push('/admin/dashboard')
+      } else {
+        const backendRole = data?.doctor?.role || data?.doctor?.role
+        // doctorLogin usually returns { doctor: {...}, token }
+        // if your backend returns { user: {...}, token } for doctors, this still works:
+        const possibleRole = data?.doctor?.role || data?.user?.role
+        if (possibleRole && possibleRole !== 'doctor') {
+          throw new Error('This account is not a doctor account.')
+        }
+        router.push('/doctor/dashboard')
       }
     } catch (err: any) {
       setError(err?.message || 'Invalid login details.')
@@ -132,6 +138,7 @@ export default function LoginPage() {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
             />
           </div>
 
@@ -143,6 +150,7 @@ export default function LoginPage() {
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
             />
           </div>
 
@@ -154,7 +162,8 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-xl py-3 text-sm font-medium bg-teal-600 text-white hover:bg-teal-700 transition"
+            disabled={loading || !canSubmit}
+            className="w-full rounded-xl py-3 text-sm font-medium bg-teal-600 text-white hover:bg-teal-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? 'Logging in...' : 'Log In'}
           </button>

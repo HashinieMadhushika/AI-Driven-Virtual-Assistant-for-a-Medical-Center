@@ -8,8 +8,10 @@ import {
   getDoctorProfile,
   updateDoctorProfile,
   changePassword
-} from '../controllers/doctorController.js';
+} from '../controllers/doctorcontroller.js';
 import { authenticateToken, authorizeRole } from '../middleware/authMiddleware.js';
+import { acceptDoctorInvite } from '../controllers/doctorcontroller.js';
+
 
 const router = express.Router();
 
@@ -26,5 +28,8 @@ router.post('/', addDoctor); // Admin adds doctor
 router.get('/', getDoctors); // Admin gets all doctors
 router.put('/:id', updateDoctor); // Admin updates doctor
 router.delete('/:id', deleteDoctor); // Admin deletes doctor
+router.post('/accept-invite', acceptDoctorInvite);
+router.post('/login', doctorLogin);
+
 
 export default router;

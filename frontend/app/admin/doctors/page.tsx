@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Upload, X, Edit2, Trash2 } from "lucide-react";
+import { Upload, X, Edit2, Trash2, User, Mail, Lock, Phone, Stethoscope, Briefcase, Clock, GraduationCap } from "lucide-react";
 
 type Doctor = {
   id: number;
@@ -268,29 +268,55 @@ export default function AdminDoctorsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6 max-w-6xl mx-auto">
+    <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Doctors Management</h1>
-          <p className="text-slate-500 mt-1">Manage doctor profiles and upload images</p>
+          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+            <Stethoscope className="text-teal-600" size={32} />
+            Doctors Management
+          </h1>
+          <p className="text-slate-500 mt-2">Manage doctor profiles and upload images</p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold"
+          className={`px-6 py-3 rounded-lg font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2 ${
+            showAddForm
+              ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+              : "bg-teal-600 text-white hover:bg-teal-700"
+          }`}
         >
-          {showAddForm ? "Cancel" : "+ Add Doctor"}
+          {showAddForm ? (
+            <>
+              <X size={20} />
+              Cancel
+            </>
+          ) : (
+            <>
+              <User size={20} />
+              Add Doctor
+            </>
+          )}
         </button>
       </div>
 
       {/* Messages */}
       {msg && (
         <div
-          className={`p-4 rounded-lg ${
-            msg.includes("✅") ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+          className={`p-4 rounded-xl shadow-sm border flex items-start gap-3 ${
+            msg.includes("✅")
+              ? "bg-green-50 text-green-800 border-green-200"
+              : "bg-red-50 text-red-800 border-red-200"
           }`}
         >
-          {msg}
+          <span className="text-xl">{msg.includes("✅") ? "✅" : "❌"}</span>
+          <p className="flex-1 font-medium">{msg.replaceAll("✅", "").replaceAll("❌", "").trim()}</p>
+          <button
+            onClick={() => setMsg("")}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={18} />
+          </button>
         </div>
       )}
 
@@ -298,77 +324,170 @@ export default function AdminDoctorsPage() {
       {showAddForm && (
         <form
           onSubmit={addDoctor}
-          className="bg-white rounded-lg border border-slate-200 p-6 space-y-4"
+          className="bg-white rounded-xl shadow-lg border border-slate-200 p-8 space-y-6"
         >
-          <h2 className="text-xl font-bold text-slate-800">Add New Doctor</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <input
-              type="tel"
-              placeholder="Phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <input
-              type="text"
-              placeholder="Specialization"
-              value={formData.specialization}
-              onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <input
-              type="text"
-              placeholder="Designation"
-              value={formData.designation}
-              onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <input
-              type="number"
-              placeholder="Years of Experience"
-              value={formData.yearsOfExperience}
-              onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <textarea
-              placeholder="Education"
-              value={formData.education}
-              onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-              className="col-span-1 md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+          <div className="border-b border-slate-200 pb-4">
+            <h2 className="text-2xl font-bold text-slate-800">Add New Doctor</h2>
+            <p className="text-sm text-slate-500 mt-1">Fill in the details to register a new doctor</p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold disabled:opacity-50"
-          >
-            {loading ? "Adding..." : "Add Doctor"}
-          </button>
+          {/* Basic Information Section */}
+          <div className="space-y-5">
+            <h3 className="text-lg font-semibold text-slate-700">Basic Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Full Name */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <User size={16} className="text-teal-600" />
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Dr. John Smith"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Mail size={16} className="text-teal-600" />
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="doctor@hospital.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Lock size={16} className="text-teal-600" />
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter secure password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Phone size={16} className="text-teal-600" />
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Professional Information Section */}
+          <div className="space-y-5">
+            <h3 className="text-lg font-semibold text-slate-700">Professional Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Specialization */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Stethoscope size={16} className="text-teal-600" />
+                  Specialization
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Cardiology, Pediatrics"
+                  value={formData.specialization}
+                  onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* Designation */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Briefcase size={16} className="text-teal-600" />
+                  Designation
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Senior Consultant"
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* Years of Experience */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Clock size={16} className="text-teal-600" />
+                  Years of Experience
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g., 10"
+                  value={formData.yearsOfExperience}
+                  onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
+                  min="0"
+                  max="60"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Education */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <GraduationCap size={16} className="text-teal-600" />
+                Education & Qualifications
+              </label>
+              <textarea
+                placeholder="e.g., MBBS from Harvard Medical School, MD in Cardiology from Johns Hopkins University"
+                value={formData.education}
+                onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="pt-4 border-t border-slate-200 flex justify-start">
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Adding Doctor...
+                </>
+              ) : (
+                <>
+                  <User size={18} />
+                  Add Doctor
+                </>
+              )}
+            </button>
+          </div>
         </form>
       )}
 
