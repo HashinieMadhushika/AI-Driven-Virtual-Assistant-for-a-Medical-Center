@@ -25,7 +25,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     const userData = localStorage.getItem('user');
 
     if (!token || userRole !== 'doctor') {
-      router.push('/doctor/login');
+      router.push('/doctor/dashboard');
       return;
     }
 

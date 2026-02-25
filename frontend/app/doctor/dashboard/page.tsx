@@ -61,9 +61,17 @@ export default function DoctorDashboard() {
       if (response.ok) {
         const data = await response.json();
         setCalendarEvents(data.events || []);
+      } else if (response.status === 400) {
+        // Calendar not connected - this is expected behavior
+        const data = await response.json();
+        if (data.message === 'Google Calendar not connected') {
+          setCalendarEvents([]);
+          setIsCalendarConnected(false);
+        }
       }
     } catch (error) {
       console.error('Error fetching calendar events:', error);
+      setCalendarEvents([]);
     } finally {
       setLoadingEvents(false);
     }

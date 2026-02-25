@@ -61,6 +61,9 @@ export default function LoginPage() {
         if (backendRole && backendRole !== 'admin') {
           throw new Error('This account is not an admin account.')
         }
+        // Store user role and data for admin
+        localStorage.setItem('userRole', 'admin')
+        localStorage.setItem('user', JSON.stringify(data.user))
         router.push('/admin/dashboard')
       } else {
         const backendRole = data?.doctor?.role || data?.doctor?.role
@@ -70,6 +73,9 @@ export default function LoginPage() {
         if (possibleRole && possibleRole !== 'doctor') {
           throw new Error('This account is not a doctor account.')
         }
+        // Store user role and data for doctor
+        localStorage.setItem('userRole', 'doctor')
+        localStorage.setItem('user', JSON.stringify(data.doctor || data.user))
         router.push('/doctor/dashboard')
       }
     } catch (err: any) {
