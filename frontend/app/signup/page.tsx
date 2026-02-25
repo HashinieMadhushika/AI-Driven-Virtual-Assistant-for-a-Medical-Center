@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [specialization, setSpecialization] = useState('')
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -20,10 +21,9 @@ export default function SignupPage() {
   const canSubmit = useMemo(() => {
     if (!fullName || !email || !password) return false
     if (password.length < 6) return false
+    if (role === 'doctor' && !specialization) return false
     return true
-  }, [fullName, email, password])
-
-  const goHome = () => router.push('/')
+  }, [fullName, email, password, role, specialization])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,10 +36,38 @@ export default function SignupPage() {
 
     setLoading(true)
     try {
-      // 🔗 Connect backend later:
-      // await fetch('/api/auth/signup', { ... })
+      // Determine endpoint based on role
+      const endpoint = role === 'doctor'
+        ? 'http://localhost:5000/api/doctors/signup'
+        : 'http://localhost:5000/api/auth/signup'
 
-      await new Promise((r) => setTimeout(r, 600))
+      const payload: any = {
+        name: fullName,
+        email,
+        password,
+        role: role
+      }
+
+      // Add specialization for doctor signup
+      if (role === 'doctor') {
+        payload.specialization = specialization
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed')
+      }
+
+      // Redirect to login after successful signup
       router.push('/login')
     } catch (err: any) {
       setError(err?.message || 'Something went wrong. Try again.')
@@ -49,11 +77,11 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f8fafc] to-[#e0f2fe] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-b from-[#f8fafc] to-[#e0f2fe] flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
         {/* Logo */}
         <div className="flex items-center justify-center mb-5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white shadow">
+          <div className="w-12 h-12 rounded-xl bg-linear-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white shadow">
             <HeartPulse className="w-6 h-6" />
           </div>
         </div>
@@ -100,8 +128,9 @@ export default function SignupPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="text-xs font-medium text-slate-600">Full Name</label>
+            <label htmlFor="fullName" className="text-xs font-medium text-slate-600">Full Name</label>
             <input
+              id="fullName"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               placeholder="Enter your full name"
               value={fullName}
@@ -110,8 +139,9 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-600">Email</label>
+            <label htmlFor="email" className="text-xs font-medium text-slate-600">Email</label>
             <input
+              id="email"
               type="email"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               placeholder="Enter your email"
@@ -121,8 +151,9 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-600">Password</label>
+            <label htmlFor="password" className="text-xs font-medium text-slate-600">Password</label>
             <input
+              id="password"
               type="password"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               placeholder="Create a password"
@@ -131,6 +162,19 @@ export default function SignupPage() {
             />
             <p className="text-[11px] text-slate-400 mt-1">Minimum 6 characters</p>
           </div>
+
+          {role === 'doctor' && (
+            <div>
+              <label htmlFor="specialization" className="text-xs font-medium text-slate-600">Specialization</label>
+              <input
+                id="specialization"
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
+                placeholder="e.g., Cardiology, Pediatrics, Dermatology"
+                value={specialization}
+                onChange={(e) => setSpecialization(e.target.value)}
+              />
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">

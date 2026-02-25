@@ -35,15 +35,36 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      // 🔗 Backend login (later)
-      // await fetch('http://localhost:5000/api/auth/login', { ... })
+      // Determine endpoint based on role
+      const endpoint = role === 'doctor' 
+        ? 'http://localhost:5000/api/doctors/login'
+        : 'http://localhost:5000/api/auth/login'
 
-      await new Promise((r) => setTimeout(r, 600))
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-      if (role === 'admin') {
-        router.push('/admin/dashboard')
-      } else {
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed')
+      }
+
+      // Store token and user data
+      localStorage.setItem('token', data.token)
+      
+      if (role === 'doctor') {
+        localStorage.setItem('user', JSON.stringify(data.doctor))
+        localStorage.setItem('userRole', 'doctor')
         router.push('/doctor/dashboard')
+      } else {
+        localStorage.setItem('user', JSON.stringify(data.user || data.admin))
+        localStorage.setItem('userRole', 'admin')
+        router.push('/admin/dashboard')
       }
     } catch (err: any) {
       setError(err?.message || 'Invalid login details.')

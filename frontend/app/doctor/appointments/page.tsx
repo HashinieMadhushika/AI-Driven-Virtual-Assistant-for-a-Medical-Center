@@ -119,12 +119,12 @@ export default function DoctorAppointments() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Appointments</h1>
-        <p className="text-gray-600 mt-1">Manage and view your scheduled appointments</p>
+        <h1 className="text-3xl font-bold text-slate-800">Appointments</h1>
+        <p className="text-slate-500 mt-1">Manage and view your scheduled appointments</p>
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white rounded-2xl shadow-md p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
             <svg
@@ -145,14 +145,14 @@ export default function DoctorAppointments() {
               placeholder="Search patients..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-full pl-12 pr-4 py-3 border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent"
             />
           </div>
           <button
             onClick={() => setFilterOpen(!filterOpen)}
-            className="flex items-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            className="flex items-center space-x-2 px-6 py-3 border border-black/10 rounded-xl hover:bg-slate-50 transition-colors"
           >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -160,14 +160,14 @@ export default function DoctorAppointments() {
                 d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
               />
             </svg>
-            <span className="font-medium text-gray-700">Filter</span>
+            <span className="font-medium text-slate-700">Filter</span>
           </button>
         </div>
 
         {/* Filter Dropdown */}
         {filterOpen && (
-          <div className="mt-4 p-4 border border-gray-200 rounded-xl bg-gray-50">
-            <p className="text-sm font-semibold text-gray-700 mb-2">Filter by Status:</p>
+          <div className="mt-4 p-4 border border-black/10 rounded-xl bg-slate-50">
+            <p className="text-sm font-semibold text-slate-700 mb-2">Filter by Status:</p>
             <div className="flex flex-wrap gap-2">
               {['', 'Pending', 'Confirmed', 'Cancelled', 'Completed'].map((status) => (
                 <button
@@ -175,8 +175,8 @@ export default function DoctorAppointments() {
                   onClick={() => setStatusFilter(status)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     statusFilter === status
-                      ? 'bg-cyan-500 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                      ? 'bg-teal-700 text-white'
+                      : 'bg-white text-slate-700 hover:bg-slate-50 border border-black/10'
                   }`}
                 >
                   {status || 'All'}
@@ -188,13 +188,13 @@ export default function DoctorAppointments() {
       </div>
 
       {/* Appointments List */}
-      <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-500">Loading appointments...</div>
+          <div className="p-12 text-center text-slate-500">Loading appointments...</div>
         ) : filteredAppointments.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">No appointments found</div>
+          <div className="p-12 text-center text-slate-500">No appointments found</div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-slate-100">
             {filteredAppointments.map((appointment) => {
               const patientName = appointment.Patient 
                 ? `${appointment.Patient.firstName} ${appointment.Patient.lastName}`
@@ -206,25 +206,25 @@ export default function DoctorAppointments() {
               return (
                 <div
                   key={appointment.id}
-                  className="p-6 hover:bg-gray-50 transition-colors"
+                  className="p-6 hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4 flex-1">
                       {/* Patient Avatar */}
-                      <div className="w-14 h-14 bg-linear-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">
+                      <div className="w-14 h-14 bg-linear-to-br from-teal-700 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">
                         {patientInitial}
                       </div>
 
                       {/* Patient Info */}
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-800">{patientName}</h3>
-                        <p className="text-sm text-gray-600">{appointment.type}</p>
+                        <h3 className="text-lg font-semibold text-slate-800">{patientName}</h3>
+                        <p className="text-sm text-slate-600">{appointment.type}</p>
                       </div>
 
                       {/* Appointment Details */}
                       <div className="flex items-center space-x-8">
-                        <div className="flex items-center space-x-2 text-gray-700">
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center space-x-2 text-slate-700">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -235,8 +235,8 @@ export default function DoctorAppointments() {
                           <span className="text-sm font-medium">{formatDate(appointment.appointmentDate)}</span>
                         </div>
 
-                        <div className="flex items-center space-x-2 text-gray-700">
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center space-x-2 text-slate-700">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -247,9 +247,9 @@ export default function DoctorAppointments() {
                           <span className="text-sm font-medium">{appointment.appointmentTime}</span>
                         </div>
 
-                        <div className="flex items-center space-x-2 text-gray-700">
+                        <div className="flex items-center space-x-2 text-slate-700">
                           {appointment.mode === 'Video Call' ? (
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -258,7 +258,7 @@ export default function DoctorAppointments() {
                               />
                             </svg>
                           ) : (
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -302,7 +302,7 @@ export default function DoctorAppointments() {
                           {appointment.status === 'Confirmed' && (
                             <button 
                               onClick={() => updateAppointmentStatus(appointment.id, 'Completed')}
-                              className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-colors"
+                              className="px-4 py-2 bg-teal-700 text-white text-sm font-semibold rounded-lg hover:bg-teal-800 transition-colors"
                             >
                               Mark Complete
                             </button>

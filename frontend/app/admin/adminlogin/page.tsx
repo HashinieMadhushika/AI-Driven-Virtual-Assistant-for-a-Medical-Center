@@ -23,10 +23,12 @@ const AdminLogin = () => {
       if (res.ok) {
         // Save JWT token for authenticated requests
         localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("userRole", "admin");
 
         setMessage("✅ Login successful! Redirecting...");
         // Redirect to admin dashboard
-        setTimeout(() => router.push("/admin-dashboard"), 500);
+        setTimeout(() => router.push("/admin/dashboard"), 500);
       } else {
         setMessage(`❌ ${data.msg || "Invalid credentials"}`);
       }
@@ -37,7 +39,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-white px-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-teal-50 to-white px-4">
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg border border-teal-100">
         <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">Admin Login</h2>
 

@@ -247,16 +247,44 @@ export default function DoctorProfile() {
         return;
       }
 
+      // Ensure dates are in proper ISO 8601 format
       const startDateTime = `${startDate}T${startTime}:00`;
-      const endDateTime = endDate && endTime ? `${endDate}T${endTime}:00` : 
-                          `${startDate}T${(Number.parseInt(startTime.split(':')[0]) + 1).toString().padStart(2, '0')}:${startTime.split(':')[1]}:00`;
+      
+      // Calculate end time if not provided (default to 1 hour later)
+      let endDateTime;
+      if (endDate && endTime) {
+        endDateTime = `${endDate}T${endTime}:00`;
+      } else {
+        const startHour = Number.parseInt(startTime.split(':')[0]);
+        const startMinute = startTime.split(':')[1];
+        endDateTime = `${startDate}T${(startHour + 1).toString().padStart(2, '0')}:${startMinute}:00`;
+      }
+
+      // Validate dates
+      const startDateObj = new Date(startDateTime);
+      const endDateObj = new Date(endDateTime);
+      
+      if (isNaN(startDateObj.getTime())) {
+        alert('Invalid start date/time format');
+        return;
+      }
+      
+      if (isNaN(endDateObj.getTime())) {
+        alert('Invalid end date/time format');
+        return;
+      }
+
+      if (endDateObj <= startDateObj) {
+        alert('End time must be after start time');
+        return;
+      }
 
       // Backend expects array of email strings, not objects
       const attendeesList = attendees ? attendees.split(',').map(email => email.trim()).filter(Boolean) : [];
 
       const requestBody = {
         title,
-        description,
+        description: description || '',
         startTime: startDateTime,
         endTime: endDateTime,
         attendees: attendeesList
@@ -304,13 +332,21 @@ export default function DoctorProfile() {
         });
         fetchUpcomingEvents();
       } else {
-        console.error('Error saving event:', data);
-        alert(data.message || 'Failed to save event');
+        console.error('Error saving event - Status:', response.status, response.statusText);
+        console.error('Error details:', data);
+        const errorMsg = data.message || data.error || `Server error: ${response.status} ${response.statusText}`;
+        alert(errorMsg);
       }
     } catch (error) {
       console.error('Error saving event:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to save event: ${errorMessage}`);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        alert(`Failed to save event: ${error.message}`);
+      } else {
+        console.error('Unknown error type:', typeof error, error);
+        alert('Failed to save event: Unknown error occurred');
+      }
     }
   };
 
@@ -325,13 +361,18 @@ export default function DoctorProfile() {
 
       const data = await response.json();
       
-      if (data.authUrl) {
+      if (response.ok && data.authUrl) {
         // Redirect to Google OAuth
         window.location.href = data.authUrl;
+      } else {
+        // Show specific error message from server
+        const errorMsg = data.message || data.error || 'Failed to get authorization URL';
+        alert(errorMsg);
+        console.error('Error from server:', data);
       }
     } catch (error) {
       console.error('Error connecting Google Calendar:', error);
-      alert('Failed to connect Google Calendar');
+      alert('Failed to connect Google Calendar. Please check if the backend server is running.');
     }
   };
 
@@ -427,7 +468,7 @@ export default function DoctorProfile() {
   if (!doctor) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
       </div>
     );
   }
@@ -436,8 +477,8 @@ export default function DoctorProfile() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Profile & Settings</h1>
-        <p className="text-gray-600">Manage your account information and preferences</p>
+        <h1 className="text-3xl font-bold text-slate-800">Profile & Settings</h1>
+        <p className="text-slate-500">Manage your account information and preferences</p>
       </div>
 
       {/* Tabs */}
@@ -446,8 +487,8 @@ export default function DoctorProfile() {
           onClick={() => setActiveTab('profile')}
           className={`flex items-center space-x-2 px-4 py-3 font-semibold transition-all ${
             activeTab === 'profile'
-              ? 'text-cyan-600 border-b-2 border-cyan-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'text-teal-700 border-b-2 border-teal-700'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -459,8 +500,8 @@ export default function DoctorProfile() {
           onClick={() => setActiveTab('password')}
           className={`flex items-center space-x-2 px-4 py-3 font-semibold transition-all ${
             activeTab === 'password'
-              ? 'text-cyan-600 border-b-2 border-cyan-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'text-teal-700 border-b-2 border-teal-700'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,8 +513,8 @@ export default function DoctorProfile() {
           onClick={() => setActiveTab('calendar')}
           className={`flex items-center space-x-2 px-4 py-3 font-semibold transition-all ${
             activeTab === 'calendar'
-              ? 'text-cyan-600 border-b-2 border-cyan-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'text-teal-700 border-b-2 border-teal-700'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -485,25 +526,25 @@ export default function DoctorProfile() {
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
-      <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-        <div className="bg-linear-to-r from-cyan-500 to-blue-600 h-32"></div>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-slate-200 h-32"></div>
         <div className="px-8 pb-8">
           <div className="flex items-end -mt-16 mb-6">
-            <div className="w-32 h-32 bg-white rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-              <div className="w-28 h-28 bg-linear-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center text-white text-4xl font-bold">
+            <div className="w-32 h-32 bg-teal-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+              <div className="w-28 h-28 bg-teal-700 rounded-full flex items-center justify-center text-white text-4xl font-bold">
                 {doctor?.name?.charAt(0)}
               </div>
             </div>
             <div className="ml-6 mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">Dr. {doctor?.name}</h2>
-              <p className="text-gray-600">{doctor?.specialization}</p>
-              <p className="text-sm text-gray-500">{doctor?.designation}</p>
+              <h2 className="text-2xl font-bold text-slate-800">Dr. {doctor?.name}</h2>
+              <p className="text-slate-600">{doctor?.specialization}</p>
+              <p className="text-sm text-slate-500">{doctor?.designation}</p>
             </div>
             <div className="ml-auto mb-4">
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="px-6 py-2 bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all shadow-md flex items-center space-x-2"
+                  className="px-6 py-2 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -514,13 +555,13 @@ export default function DoctorProfile() {
                 <div className="flex space-x-3">
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all"
+                    className="px-6 py-2 bg-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-300 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSave}
-                    className="px-6 py-2 bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all shadow-md flex items-center space-x-2"
+                    className="px-6 py-2 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center space-x-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -544,7 +585,7 @@ export default function DoctorProfile() {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 ) : (
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
@@ -574,7 +615,7 @@ export default function DoctorProfile() {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 ) : (
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
@@ -597,7 +638,7 @@ export default function DoctorProfile() {
                     type="text"
                     value={formData.specialization}
                     onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 ) : (
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
@@ -617,7 +658,7 @@ export default function DoctorProfile() {
                     type="text"
                     value={formData.designation}
                     onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 ) : (
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
@@ -637,7 +678,7 @@ export default function DoctorProfile() {
                     type="number"
                     value={formData.yearsOfExperience}
                     onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 ) : (
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
@@ -656,14 +697,14 @@ export default function DoctorProfile() {
 
       {/* Password Tab */}
       {activeTab === 'password' && (
-        <div className="bg-white rounded-2xl shadow-md p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
           <div className="max-w-2xl">
             {/* Info Banner */}
-            <div className="flex items-start space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-xl mb-6">
-              <svg className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start space-x-3 p-4 bg-teal-50 border border-teal-200 rounded-xl mb-6">
+              <svg className="w-5 h-5 text-teal-700 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-sm text-blue-800">
+              <p className="text-sm text-teal-800">
                 Keep your password secure. You can change it anytime. Your email cannot be changed.
               </p>
             </div>
@@ -678,7 +719,7 @@ export default function DoctorProfile() {
                   value={passwordData.currentPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                   placeholder="Enter your current password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
               </div>
 
@@ -689,7 +730,7 @@ export default function DoctorProfile() {
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                   placeholder="Enter new password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
                 <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters long</p>
               </div>
@@ -701,7 +742,7 @@ export default function DoctorProfile() {
                   value={passwordData.confirmPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                   placeholder="Confirm new password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
               </div>
 
@@ -709,7 +750,7 @@ export default function DoctorProfile() {
               <div className="flex items-center space-x-3 pt-4">
                 <button
                   onClick={handlePasswordChange}
-                  className="px-6 py-3 bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all shadow-md flex items-center space-x-2"
+                  className="px-6 py-3 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -718,7 +759,7 @@ export default function DoctorProfile() {
                 </button>
                 <button
                   onClick={() => setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all"
+                  className="px-6 py-3 bg-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-300 transition-all"
                 >
                   Cancel
                 </button>
@@ -730,10 +771,10 @@ export default function DoctorProfile() {
 
       {/* Calendar Integration Tab */}
       {activeTab === 'calendar' && (
-        <div className="bg-white rounded-2xl shadow-md p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
           <div className="max-w-7xl mx-auto">
             {!calendarConnected ? (
-              <div className="bg-linear-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-2xl p-8">
+              <div className="bg-slate-50 border border-black/10 rounded-2xl p-8">
                 {/* Header */}
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-gray-800 mb-2">Google Calendar Integration</h3>
@@ -741,7 +782,7 @@ export default function DoctorProfile() {
 
                 {/* Icon */}
                 <div className="flex justify-center mb-6">
-                  <div className="w-20 h-20 bg-linear-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-20 h-20 bg-teal-700 rounded-2xl flex items-center justify-center shadow-sm">
                     <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
@@ -760,7 +801,7 @@ export default function DoctorProfile() {
                 <div className="flex justify-center">
                   <button 
                     onClick={handleConnectGoogleCalendar}
-                    className="px-8 py-4 bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all shadow-lg flex items-center space-x-3"
+                    className="px-8 py-4 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center space-x-3"
                   >
                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -851,7 +892,7 @@ export default function DoctorProfile() {
                             role={day ? 'button' : undefined}
                             tabIndex={day ? 0 : undefined}
                             className={`min-h-[60px] p-2 rounded-lg relative ${
-                              day ? (today ? 'bg-cyan-500 text-white font-bold' : 'text-gray-700 hover:bg-gray-100 cursor-pointer') : ''
+                              day ? (today ? 'bg-teal-700 text-white font-bold' : 'text-gray-700 hover:bg-gray-100 cursor-pointer') : ''
                             }`}
                             onClick={() => day && handleDateClick(day)}
                             onKeyDown={(e) => {
@@ -870,7 +911,7 @@ export default function DoctorProfile() {
                                   <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex space-x-0.5">
                                     {events.slice(0, 3).map((event, idx) => (
                                       <div key={event.id || `indicator-${day}-${idx}`} className={`w-1 h-1 rounded-full ${
-                                        today ? 'bg-white' : 'bg-cyan-500'
+                                        today ? 'bg-white' : 'bg-teal-600'
                                       }`}></div>
                                     ))}
                                   </div>
@@ -902,7 +943,7 @@ export default function DoctorProfile() {
                             });
                             setShowCreateEventModal(true);
                           }}
-                          className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                          className="px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -911,7 +952,7 @@ export default function DoctorProfile() {
                         </button>
                         <button
                           onClick={fetchUpcomingEvents}
-                          className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center"
+                          className="text-teal-700 hover:text-teal-800 text-sm font-medium flex items-center"
                         >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -923,7 +964,7 @@ export default function DoctorProfile() {
 
                   {loadingEvents && (
                     <div className="flex justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
                     </div>
                   )}
                   
@@ -957,7 +998,7 @@ export default function DoctorProfile() {
                             <div className="flex items-center space-x-2 ml-4">
                               <button
                                 onClick={() => handleEditEvent(event)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-2 text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
                                 title="Edit event"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1029,7 +1070,7 @@ export default function DoctorProfile() {
                   value={newEvent.title}
                   onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
                   placeholder="e.g., Patient Appointment"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
               </div>
 
@@ -1041,7 +1082,7 @@ export default function DoctorProfile() {
                   onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
                   placeholder="Event details..."
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
               </div>
 
@@ -1055,7 +1096,7 @@ export default function DoctorProfile() {
                     type="date"
                     value={newEvent.startDate}
                     onChange={(e) => setNewEvent({ ...newEvent, startDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 </div>
                 <div>
@@ -1066,7 +1107,7 @@ export default function DoctorProfile() {
                     type="time"
                     value={newEvent.startTime}
                     onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 </div>
               </div>
@@ -1079,7 +1120,7 @@ export default function DoctorProfile() {
                     type="date"
                     value={newEvent.endDate}
                     onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 </div>
                 <div>
@@ -1088,7 +1129,7 @@ export default function DoctorProfile() {
                     type="time"
                     value={newEvent.endTime}
                     onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                   />
                 </div>
               </div>
@@ -1103,7 +1144,7 @@ export default function DoctorProfile() {
                   value={newEvent.attendees}
                   onChange={(e) => setNewEvent({ ...newEvent, attendees: e.target.value })}
                   placeholder="Comma-separated emails: john@example.com, jane@example.com"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
                 <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
               </div>
@@ -1124,13 +1165,13 @@ export default function DoctorProfile() {
                       attendees: ''
                     });
                   }}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all"
+                  className="px-6 py-3 bg-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-300 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateEvent}
-                  className="px-6 py-3 bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 transition-all shadow-md flex items-center space-x-2"
+                  className="px-6 py-3 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={editingEventId ? "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" : "M12 4v16m8-8H4"} />

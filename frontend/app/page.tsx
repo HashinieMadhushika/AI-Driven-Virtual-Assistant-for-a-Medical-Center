@@ -1,30 +1,407 @@
+"use client";
 
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Calendar,
+  Pill,
+  ChevronRight,
+  ShieldCheck,
+  Clock,
+  HeartPulse,
+} from "lucide-react";
 
-export default function Home() {
+const HomePage = () => {
+  const router = useRouter();
+  const [chatbotAnimated, setChatbotAnimated] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setChatbotAnimated(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleChatbotClick = () => {
+    router.push("/chatbot");
+  };
+
+  const handleJoinClick = () => {
+    router.push("/login");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to Medical Center AI</h1>
-        <p className="text-xl text-gray-600 mb-8">Providing intelligent healthcare solutions</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">Dashboard</h2>
-            <p className="text-gray-600">View your health metrics and appointment schedule</p>
+    <div
+      className="min-h-screen bg-linear-to-b from-teal-50 to-white text-slate-900"
+      style={{ fontFamily: "'Manrope', 'Segoe UI', sans-serif" }}
+    >
+      <header className="bg-white/90 backdrop-blur border-b border-black/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <div className="w-9 h-9 bg-linear-to-br from-teal-600 to-cyan-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">M</span>
+            </div>
+            <div className="leading-tight">
+              <span className="text-xl font-bold text-slate-800">MediCare AI</span>
+              <div className="text-xs text-slate-500">Medical Center Platform</div>
+            </div>
           </div>
-          
-          <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">Pharmacy</h2>
-            <p className="text-gray-600">Manage prescriptions and medication inventory</p>
+          <nav className="hidden md:flex space-x-8 text-sm font-medium text-slate-600">
+            <a href="#services" className="hover:text-teal-600">Services</a>
+            <a href="#vision" className="hover:text-teal-600">Vision</a>
+            <a href="#about" className="hover:text-teal-600">About</a>
+            <a href="#contact" className="hover:text-teal-600">Contact us</a>
+          </nav>
+
+          <button
+            onClick={handleJoinClick}
+            className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+          >
+            Join with us
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-teal-200 bg-teal-50 text-teal-800 text-xs font-semibold">
+                <img
+                  src="/images/ai-assistant.png"
+                  alt="AI assistant"
+                  className="w-4 h-4"
+                /> AI-first medical operations
+              </div>
+              <h1 className="mt-6 text-4xl font-extrabold text-slate-900 leading-tight">
+                A seamless care hub for admins, doctors, and AI-led patient journeys.
+              </h1>
+              <p className="mt-5 text-lg text-slate-600">
+                Centralize appointments, calendars, and pharmacy workflows while the AI assistant handles patient requests end-to-end.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  onClick={() => router.push("/chatbot")}
+                  className="bg-teal-700 hover:bg-teal-800 text-white px-6 py-3 rounded-xl font-semibold transition-colors"
+                >
+                  Talk to the AI Assistant
+                </button>
+                <button
+                  onClick={() => router.push("/login")}
+                  className="border border-black/10 text-slate-700 px-6 py-3 rounded-xl font-semibold hover:bg-slate-50 transition"
+                >
+                  Access Your Portal
+                </button>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-4 text-sm text-slate-600">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-teal-700" />
+                  Role-based access control
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-teal-700" />
+                  Real-time scheduling
+                </div>
+                <div className="flex items-center gap-2">
+                  <HeartPulse className="w-4 h-4 text-teal-700" />
+                  AI-guided patient intake
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 border border-black/5">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-12 h-12 bg-linear-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <img
+                      src="/images/ai-assistant.png"
+                      alt="AI assistant"
+                      className="w-10 h-10"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800">AI Assistant</h3>
+                    <p className="text-sm text-slate-500">Always available</p>
+                  </div>
+                  <span className="ml-auto text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Online</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-slate-100 rounded-lg p-4">
+                    <p className="text-slate-700 text-sm">Hello! How can I help you today?</p>
+                  </div>
+                  <div className="bg-teal-600 text-white rounded-lg p-4 ml-auto max-w-xs">
+                    <p className="text-sm">I need to book an appointment</p>
+                  </div>
+                  <div className="bg-slate-100 rounded-lg p-4">
+                    <p className="text-slate-700 text-sm">What type of doctor would you like to see?</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Type your message..."
+                    className="flex-1 border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <button className="bg-teal-600 text-white p-2 rounded-lg hover:bg-teal-700 transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          
-          <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">AI Assistant</h2>
-            <p className="text-gray-600">Chat with our intelligent medical assistant</p>
+        </section>
+
+        <section id="services" className="bg-white py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-center text-slate-900 mb-4">
+              Everything you need for modern care
+            </h2>
+            <p className="text-center text-slate-600 mb-12">
+              From AI chatbot to pharmacy pickups, streamline every visit with confidence.
+            </p>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="bg-linear-to-br from-teal-50 to-white p-8 rounded-xl border border-teal-100">
+                <div className="w-12 h-12 bg-teal-600 rounded-full flex items-center justify-center mb-4">
+                  <img
+                    src="/images/ai-assistant.png"
+                    alt="AI assistant"
+                    className="w-7 h-7"
+                  />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">AI Health Assistant</h3>
+                <p className="text-slate-600">Get quick answers, guidance, and appointment help 24/7.</p>
+              </div>
+
+              <div className="bg-linear-to-br from-cyan-50 to-white p-8 rounded-xl border border-cyan-100">
+                <div className="w-12 h-12 bg-teal-600 rounded-full flex items-center justify-center mb-4">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">Doctor Appointments</h3>
+                <p className="text-slate-600">Book, reschedule, and manage visits in seconds.</p>
+              </div>
+
+              <div className="bg-linear-to-br from-sky-50 to-white p-8 rounded-xl border border-sky-100">
+                <div className="w-12 h-12 bg-teal-600 rounded-full flex items-center justify-center mb-4">
+                  <Pill className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">Pharmacy Integration</h3>
+                <p className="text-slate-600">Coordinate prescriptions, refills, and pickups smoothly.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="vision" className="py-16 bg-linear-to-br from-teal-50 via-cyan-50 to-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-3xl font-bold text-slate-900 mb-6">Our vision</h2>
+                <p className="text-slate-700 mb-6 leading-relaxed">
+                  We create a seamless healthcare experience by connecting patients with the right care quickly, while supporting providers with intelligent automation.
+                </p>
+
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <span className="text-teal-600 mr-2">✓</span>
+                    <span className="text-slate-700">Empower patients with clear guidance and next steps</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-teal-600 mr-2">✓</span>
+                    <span className="text-slate-700">Simplify appointment scheduling and reminders</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-teal-600 mr-2">✓</span>
+                    <span className="text-slate-700">Secure records and coordinated pharmacy services</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-xl">
+                <div className="rounded-xl bg-linear-to-br from-teal-50 to-cyan-50 p-5 border border-teal-100">
+                  <p className="text-xs uppercase tracking-wide text-teal-700 font-semibold">Our vision</p>
+                  <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                    Care that feels effortless for patients and sustainable for teams.
+                  </h3>
+                  <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+                    We want every patient to feel supported from the first question to the final follow-up. Our
+                    platform blends compassionate communication with reliable automation so clinicians can focus
+                    on care, not coordination.
+                  </p>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <span className="text-teal-600 font-semibold">01</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Access without friction</p>
+                      <p className="text-xs text-slate-500">Clear guidance, fast booking, and proactive reminders.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <span className="text-teal-600 font-semibold">02</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Care team confidence</p>
+                      <p className="text-xs text-slate-500">Unified workflows that reduce noise and handoffs.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <span className="text-teal-600 font-semibold">03</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Trust and transparency</p>
+                      <p className="text-xs text-slate-500">Secure, explainable AI that keeps patients informed.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="about" className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-3xl font-bold text-slate-900 mb-4">
+                  About MediCare AI Center
+                </h2>
+                <p className="text-slate-600 mb-6 leading-relaxed">
+                  MediCare AI Center unifies scheduling, clinical coordination, and patient communication in one
+                  calm, modern workspace. We help clinics reduce admin load while patients get clear, timely
+                  guidance before, during, and after every visit.
+                </p>
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-teal-100 bg-linear-to-br from-teal-50 to-white p-5">
+                    <h3 className="text-lg font-semibold text-slate-900">Trusted care teams</h3>
+                    <p className="text-slate-600 text-sm mt-2">
+                      Credentialed clinicians supported by smart tools for faster handoffs and better follow-up.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-teal-100 bg-linear-to-br from-teal-50 to-white p-5">
+                    <h3 className="text-lg font-semibold text-slate-900">Responsible AI guidance</h3>
+                    <p className="text-slate-600 text-sm mt-2">
+                      Patient-friendly explanations, clear next steps, and alerts that keep everyone aligned.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-teal-100 bg-linear-to-br from-teal-50 to-white p-5">
+                    <h3 className="text-lg font-semibold text-slate-900">Operational clarity</h3>
+                    <p className="text-slate-600 text-sm mt-2">
+                      Unified calendars, messaging, and pharmacy workflows that reduce delays and missed care.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative">
+                <img
+                  src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=900&h=600&fit=crop"
+                  alt="Healthcare professionals"
+                  className="rounded-2xl shadow-2xl border border-black/5"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="py-16 bg-linear-to-br from-teal-50 to-cyan-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-center text-slate-900 mb-4">Contact us</h2>
+            <p className="text-center text-slate-600 mb-12">
+              Questions about MediCare AI? We respond within one business day.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              <div className="bg-white p-8 rounded-xl shadow-lg">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Write to us</h3>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <textarea
+                    placeholder="Message"
+                    rows={4}
+                    className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-xl shadow-lg">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Subscribe for updates</h3>
+                <div className="space-y-4">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <button
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Subscribe now
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="bg-white/90 text-slate-900 py-12 border-t border-black/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-9 h-9 bg-teal-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">M</span>
+                </div>
+                <span className="text-xl font-bold text-slate-800">MediCare AI</span>
+              </div>
+              <p className="text-slate-500 max-w-md">
+                MediCare AI delivers trusted, AI-powered healthcare coordination for patients and clinics.
+              </p>
+            </div>
+
+            <div className="text-right">
+              <h4 className="font-semibold mb-2 text-slate-800">GET IN TOUCH</h4>
+              <p className="text-slate-600">123 Healthcare Avenue</p>
+              <p className="text-slate-600">Colombo, Sri Lanka</p>
+              <p className="text-slate-600 mt-2">info@medicareai.com</p>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      <div
+        className={`fixed cursor-pointer transition-all duration-1000 ease-out ${
+          chatbotAnimated
+            ? "bottom-8 right-8 opacity-100"
+            : "bottom-0 right-8 opacity-0 translate-y-20"
+        }`}
+        onClick={handleChatbotClick}
+      >
+        <div className="relative group">
+          <div className="w-16 h-16 bg-linear-to-br from-teal-600 to-cyan-400 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer">
+            <img
+              src="/images/ai-assistant.png"
+              alt="AI assistant"
+              className="w-14 h-14"
+            />
+          </div>
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
+
+          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Chat with AI Assistant
           </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default HomePage;
 
