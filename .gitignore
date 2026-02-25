@@ -5,6 +5,7 @@ package-lock.json
 # Environment variables - NEVER commit these!
 .env
 .env.local
+.env.example
 .env.production
 backend/.env
 frontend/.env

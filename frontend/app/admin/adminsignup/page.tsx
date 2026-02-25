@@ -22,8 +22,8 @@ const AdminSignup = () => {
       const data = await res.json();
 
       if (res.ok) {
-        // Optionally save token if backend returns it
-        // localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("userRole", "admin");
 
         setMessage("Admin registered successfully! Redirecting...");
         // Redirect to admin dashboard after 1 second
@@ -38,7 +38,7 @@ const AdminSignup = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-white px-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-teal-50 to-white px-4">
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg border border-teal-100">
         <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">Admin Signup</h2>
 
