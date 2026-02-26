@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
 import calendarRoutes from './routes/calendarRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
+import contactRoutes from './routes/contactRoutes.js';
 import sequelize from './config/db.js';
 // Import models to ensure they're registered
 import User from './models/User.js';
@@ -40,6 +41,8 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/calendar', calendarRoutes);
 // Appointment routes
 app.use('/api/appointments', appointmentRoutes);
+// Contact routes
+app.use('/api/contact', contactRoutes);
 
 // Sync DB and start server
 (async () => {

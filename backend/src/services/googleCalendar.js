@@ -39,6 +39,32 @@ export const setCredentials = (tokens) => {
 export const createCalendarEvent = async (auth, eventDetails) => {
   const calendar = google.calendar({ version: 'v3', auth });
 
+  // Convert attendees from strings to objects if needed
+  let attendees = [];
+  if (eventDetails.attendees && eventDetails.attendees.length > 0) {
+    attendees = eventDetails.attendees.map(attendee => {
+      if (typeof attendee === 'string') {
+        return { email: attendee };
+      }
+      return attendee;
+    });
+    
+    // Validate attendee emails
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidAttendees = attendees.filter(a => !emailRegex.test(a.email));
+    if (invalidAttendees.length > 0) {
+      throw new Error(`Invalid email format(s) in attendees: ${invalidAttendees.map(a => a.email).join(', ')}`);
+    }
+  }
+
+  console.log('Creating calendar event with details:', {
+    title: eventDetails.title,
+    startTime: eventDetails.startTime,
+    endTime: eventDetails.endTime,
+    rawAttendees: eventDetails.attendees,
+    formattedAttendees: attendees
+  });
+
   const event = {
     summary: eventDetails.title,
     description: eventDetails.description,
@@ -50,7 +76,7 @@ export const createCalendarEvent = async (auth, eventDetails) => {
       dateTime: eventDetails.endTime,
       timeZone: 'Asia/Colombo',
     },
-    attendees: eventDetails.attendees || [],
+    attendees: attendees,
     reminders: {
       useDefault: false,
       overrides: [
@@ -119,9 +145,18 @@ export const updateCalendarEvent = async (auth, eventId, updates) => {
   }
   
   if (updates.attendees !== undefined) {
-    eventUpdates.attendees = Array.isArray(updates.attendees) 
+    const attendeesArray = Array.isArray(updates.attendees) 
       ? updates.attendees.map(email => typeof email === 'string' ? { email } : email)
       : [];
+    
+    // Validate attendee emails
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidAttendees = attendeesArray.filter(a => !emailRegex.test(a.email));
+    if (invalidAttendees.length > 0) {
+      throw new Error(`Invalid email format(s) in attendees: ${invalidAttendees.map(a => a.email).join(', ')}`);
+    }
+    
+    eventUpdates.attendees = attendeesArray;
   }
 
   // Merge updates with existing event

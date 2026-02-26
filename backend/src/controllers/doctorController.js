@@ -150,6 +150,45 @@ export const changePassword = async (req, res) => {
   }
 };
 
+// Upload doctor's own profile image (authenticated doctor)
+export const uploadOwnProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    // Find doctor
+    const doctor = await Doctor.findByPk(req.user.id);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    // Import cloudinary service
+    const cloudinaryService = await import('../services/cloudinaryService.js');
+    const uploadResult = await cloudinaryService.uploadDoctorImage(req.file.buffer, req.file.originalname);
+    
+    if (!uploadResult || !uploadResult.secure_url) {
+      return res.status(500).json({ message: 'Failed to upload image to Cloudinary' });
+    }
+
+    // Update doctor with image URL
+    await doctor.update({ profileImageUrl: uploadResult.secure_url });
+
+    const updatedDoctor = await Doctor.findByPk(req.user.id, {
+      attributes: { exclude: ["password"] },
+    });
+
+    return res.json({
+      message: 'Profile image uploaded successfully',
+      profileImageUrl: uploadResult.secure_url,
+      doctor: updatedDoctor
+    });
+  } catch (error) {
+    console.error('Upload profile image error:', error);
+    return res.status(500).json({ message: 'Error uploading profile image', error: error.message });
+  }
+};
+
 // Get all doctors (admin)
 export const getDoctors = async (req, res) => {
   try {
