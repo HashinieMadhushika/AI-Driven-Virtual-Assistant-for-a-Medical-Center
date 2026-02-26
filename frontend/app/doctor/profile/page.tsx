@@ -12,6 +12,7 @@ export default function DoctorProfile() {
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -200,6 +201,12 @@ export default function DoctorProfile() {
       }
     }
     
+    console.log('Editing event:', {
+      title: event.summary,
+      attendees: event.attendees,
+      attendeesStr: attendeesStr
+    });
+    
     setEditingEventId(event.id);
     setNewEvent({
       title: event.summary || '',
@@ -236,6 +243,12 @@ export default function DoctorProfile() {
       console.error('Error deleting event:', error);
       alert('Failed to delete event');
     }
+  };
+
+  // Email validation helper
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   const handleCreateEvent = async () => {
@@ -279,8 +292,15 @@ export default function DoctorProfile() {
         return;
       }
 
-      // Backend expects array of email strings, not objects
+      // Parse and validate attendees - only email addresses accepted
       const attendeesList = attendees ? attendees.split(',').map(email => email.trim()).filter(Boolean) : [];
+      
+      // Validate each email format
+      const invalidEmails = attendeesList.filter(email => !isValidEmail(email));
+      if (invalidEmails.length > 0) {
+        alert(`Invalid email format(s): ${invalidEmails.join(', ')}\n\nPlease use valid email addresses only (e.g., john@example.com)`);
+        return;
+      }
 
       const requestBody = {
         title,
@@ -291,7 +311,13 @@ export default function DoctorProfile() {
       };
 
       const isEditing = !!editingEventId;
-      console.log(isEditing ? 'Updating calendar event:' : 'Creating calendar event:', requestBody);
+      console.log(isEditing ? 'Updating calendar event:' : 'Creating calendar event:', {
+        title,
+        attendeesString: attendees,
+        attendeesList,
+        startTime: startDateTime,
+        endTime: endDateTime
+      });
 
       const token = localStorage.getItem('token');
       const url = isEditing 
@@ -465,6 +491,54 @@ export default function DoctorProfile() {
     }
   };
 
+  const handleProfileImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please upload a valid image file (JPEG, PNG, or WebP)');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('http://localhost:5000/api/doctors/profile/image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setDoctor(data.doctor);
+        localStorage.setItem('user', JSON.stringify(data.doctor));
+        alert('Profile image updated successfully!');
+      } else {
+        alert(data.message || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      alert('Failed to upload profile image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   if (!doctor) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -530,15 +604,46 @@ export default function DoctorProfile() {
         <div className="bg-slate-200 h-32"></div>
         <div className="px-8 pb-8">
           <div className="flex items-end -mt-16 mb-6">
-            <div className="w-32 h-32 bg-teal-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-              <div className="w-28 h-28 bg-teal-700 rounded-full flex items-center justify-center text-white text-4xl font-bold">
-                {doctor?.name?.charAt(0)}
+            <div className="relative">
+              <div className="w-32 h-32 bg-teal-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden">
+                {doctor?.profileImageUrl ? (
+                  <img
+                    src={doctor.profileImageUrl}
+                    alt={doctor.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-28 h-28 bg-teal-700 rounded-full flex items-center justify-center text-white text-4xl font-bold">
+                    {doctor?.name?.charAt(0)}
+                  </div>
+                )}
               </div>
+              <label
+                htmlFor="profile-image-upload"
+                className="absolute bottom-0 right-0 w-10 h-10 bg-teal-700 rounded-full border-2 border-white shadow-lg flex items-center justify-center cursor-pointer hover:bg-teal-800 transition-colors"
+                title="Upload profile image"
+              >
+                {uploadingImage ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                )}
+              </label>
+              <input
+                id="profile-image-upload"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleProfileImageUpload}
+                className="hidden"
+                disabled={uploadingImage}
+              />
             </div>
             <div className="ml-6 mb-4">
               <h2 className="text-2xl font-bold text-slate-800">Dr. {doctor?.name}</h2>
               <p className="text-slate-600">{doctor?.specialization}</p>
-              <p className="text-sm text-slate-500">{doctor?.designation}</p>
             </div>
             <div className="ml-auto mb-4">
               {!isEditing ? (
@@ -646,26 +751,6 @@ export default function DoctorProfile() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <span className="text-gray-800">{doctor?.specialization}</span>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="designation" className="block text-sm font-semibold text-gray-700 mb-2">Designation</label>
-                {isEditing ? (
-                  <input
-                    id="designation"
-                    type="text"
-                    value={formData.designation}
-                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
-                  />
-                ) : (
-                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-gray-800">{doctor?.designation || 'Medical License MD-12345'}</span>
                   </div>
                 )}
               </div>
@@ -1143,10 +1228,10 @@ export default function DoctorProfile() {
                   type="text"
                   value={newEvent.attendees}
                   onChange={(e) => setNewEvent({ ...newEvent, attendees: e.target.value })}
-                  placeholder="Comma-separated emails: john@example.com, jane@example.com"
+                  placeholder="Email addresses: john@hospital.com, jane@clinic.com"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
-                <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
+                <p className="text-xs text-gray-500 mt-1">Enter valid email addresses separated by commas. Example: doctor@hospital.com, nurse@hospital.com</p>
               </div>
 
               {/* Buttons */}
