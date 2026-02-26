@@ -96,6 +96,12 @@ const Doctor = sequelize.define(
     yearsOfExperience: { type: DataTypes.INTEGER, allowNull: true },
 
     education: { type: DataTypes.TEXT, allowNull: true },
+       
+    profileImageUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
 
     certifications: {
       type: DataTypes.JSON,

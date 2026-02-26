@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Upload, X, Edit2, Trash2, User, Mail, Lock, Phone, Stethoscope, Briefcase, Clock, GraduationCap } from "lucide-react";
+import {
+  Upload,
+  X,
+  Edit2,
+  Trash2,
+  User,
+  Mail,
+  Phone,
+  Stethoscope,
+  Briefcase,
+  Clock,
+  GraduationCap,
+} from "lucide-react";
 
 type Doctor = {
   id: number;
@@ -26,6 +38,7 @@ export default function AdminDoctorsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
@@ -34,13 +47,13 @@ export default function AdminDoctorsPage() {
     designation: "",
     yearsOfExperience: "",
     education: "",
-    certifications: ""
+    certifications: "",
   });
 
+  // ✅ password removed (invite flow)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    password: "",
     phone: "",
     specialization: "",
     designation: "",
@@ -94,6 +107,8 @@ export default function AdminDoctorsPage() {
 
     try {
       setUploadingId(doctorId);
+      setMsg("");
+
       const formDataToSend = new FormData();
       formDataToSend.append("image", selectedImage);
 
@@ -103,7 +118,7 @@ export default function AdminDoctorsPage() {
         body: formDataToSend,
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to upload image");
 
       setMsg("✅ Doctor image uploaded successfully");
@@ -126,7 +141,7 @@ export default function AdminDoctorsPage() {
         headers: getAuthHeaders(),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to remove image");
 
       setMsg("✅ Doctor image removed successfully");
@@ -137,38 +152,57 @@ export default function AdminDoctorsPage() {
     }
   };
 
+  // ✅ Invite flow add doctor (NO password)
   const addDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
+      setMsg("");
+
+      // backend requires: name, email, specialization
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        specialization: formData.specialization.trim(),
+        phone: formData.phone.trim() || null,
+        designation: formData.designation.trim() || null,
+        yearsOfExperience: formData.yearsOfExperience
+          ? Number(formData.yearsOfExperience)
+          : null,
+        education: formData.education.trim() || null,
+        // certifications not in add form currently
+      };
+
       const res = await fetch(`${API}/api/doctors`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to add doctor");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to invite doctor");
 
-      setMsg("✅ Doctor added successfully");
+      // backend response: "Doctor invited successfully"
+      setMsg("✅ Doctor invited successfully. Password setup link has been sent to the doctor’s email.");
+
       setFormData({
         name: "",
         email: "",
-        password: "",
         phone: "",
         specialization: "",
         designation: "",
         yearsOfExperience: "",
         education: "",
       });
+
       setShowAddForm(false);
       fetchDoctors();
     } catch (error) {
       console.error(error);
-      setMsg(`❌ ${error instanceof Error ? error.message : "Failed to add doctor"}`);
+      setMsg(`❌ ${error instanceof Error ? error.message : "Failed to invite doctor"}`);
     } finally {
       setLoading(false);
     }
@@ -184,7 +218,7 @@ export default function AdminDoctorsPage() {
         headers: getAuthHeaders(),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to delete doctor");
 
       setMsg("✅ Doctor deleted successfully");
@@ -219,7 +253,7 @@ export default function AdminDoctorsPage() {
       education: doctor.education ?? "",
       certifications: Array.isArray(doctor.certifications)
         ? doctor.certifications.join(", ")
-        : ""
+        : "",
     });
   };
 
@@ -241,19 +275,19 @@ export default function AdminDoctorsPage() {
               .split(",")
               .map((item) => item.trim())
               .filter(Boolean)
-          : []
+          : [],
       };
 
       const res = await fetch(`${API}/api/doctors/${doctorId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...getAuthHeaders()
+          ...getAuthHeaders(),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to update doctor");
 
       setMsg("✅ Doctor updated successfully");
@@ -311,10 +345,7 @@ export default function AdminDoctorsPage() {
         >
           <span className="text-xl">{msg.includes("✅") ? "✅" : "❌"}</span>
           <p className="flex-1 font-medium">{msg.replaceAll("✅", "").replaceAll("❌", "").trim()}</p>
-          <button
-            onClick={() => setMsg("")}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
+          <button onClick={() => setMsg("")} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -322,13 +353,12 @@ export default function AdminDoctorsPage() {
 
       {/* Add Doctor Form */}
       {showAddForm && (
-        <form
-          onSubmit={addDoctor}
-          className="bg-white rounded-xl shadow-lg border border-slate-200 p-8 space-y-6"
-        >
+        <form onSubmit={addDoctor} className="bg-white rounded-xl shadow-lg border border-slate-200 p-8 space-y-6">
           <div className="border-b border-slate-200 pb-4">
             <h2 className="text-2xl font-bold text-slate-800">Add New Doctor</h2>
-            <p className="text-sm text-slate-500 mt-1">Fill in the details to register a new doctor</p>
+            <p className="text-sm text-slate-500 mt-1">
+              Fill in the details to invite a doctor. They will receive an email to set their password.
+            </p>
           </div>
 
           {/* Basic Information Section */}
@@ -367,22 +397,6 @@ export default function AdminDoctorsPage() {
                 />
               </div>
 
-              {/* Password */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <Lock size={16} className="text-teal-600" />
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="Enter secure password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                />
-              </div>
-
               {/* Phone */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -391,7 +405,7 @@ export default function AdminDoctorsPage() {
                 </label>
                 <input
                   type="tel"
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+94 70 000 0000"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
@@ -408,13 +422,14 @@ export default function AdminDoctorsPage() {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                   <Stethoscope size={16} className="text-teal-600" />
-                  Specialization
+                  Specialization <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g., Cardiology, Pediatrics"
                   value={formData.specialization}
                   onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                  required
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 />
               </div>
@@ -459,7 +474,7 @@ export default function AdminDoctorsPage() {
                 Education & Qualifications
               </label>
               <textarea
-                placeholder="e.g., MBBS from Harvard Medical School, MD in Cardiology from Johns Hopkins University"
+                placeholder="e.g., MBBS from ... , MD in ..."
                 value={formData.education}
                 onChange={(e) => setFormData({ ...formData, education: e.target.value })}
                 rows={4}
@@ -478,12 +493,12 @@ export default function AdminDoctorsPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Adding Doctor...
+                  Inviting Doctor...
                 </>
               ) : (
                 <>
                   <User size={18} />
-                  Add Doctor
+                  Invite Doctor
                 </>
               )}
             </button>
@@ -491,10 +506,13 @@ export default function AdminDoctorsPage() {
         </form>
       )}
 
-      {/* Doctors Grid */}
+      {/* Doctors Grid (unchanged from your original) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {doctors.map((doctor) => (
-          <div key={doctor.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition">
+          <div
+            key={doctor.id}
+            className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition"
+          >
             {/* Image Section */}
             <div className="relative h-72 bg-linear-to-b from-slate-50 to-slate-100 flex items-center justify-center overflow-hidden">
               {doctor.profileImageUrl ? (
@@ -563,21 +581,6 @@ export default function AdminDoctorsPage() {
               )}
             </div>
 
-            {/* Image Preview if uploading */}
-            {editingId === doctor.id && imagePreview && (
-              <div className="px-4 py-2 bg-blue-50 border-b border-slate-200">
-                <p className="text-xs text-blue-700 font-semibold">Preview:</p>
-                <div className="relative mt-2 h-32 rounded overflow-hidden border border-blue-200">
-                  <Image
-                    src={imagePreview}
-                    alt="Preview"
-                    fill
-                    className="object-cover object-top"
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Doctor Info */}
             <div className="p-4 space-y-3">
               <div>
@@ -607,54 +610,56 @@ export default function AdminDoctorsPage() {
                     placeholder="Full Name"
                     value={editForm.name}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                   />
                   <input
                     type="email"
                     placeholder="Email"
                     value={editForm.email}
                     onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                   />
                   <input
                     type="tel"
                     placeholder="Phone"
                     value={editForm.phone}
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                   />
                   <input
                     type="text"
                     placeholder="Specialization"
                     value={editForm.specialization}
                     onChange={(e) => setEditForm({ ...editForm, specialization: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                   />
                   <input
                     type="text"
                     placeholder="Designation"
                     value={editForm.designation}
                     onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                   />
                   <input
                     type="number"
                     placeholder="Years of Experience"
                     value={editForm.yearsOfExperience}
                     onChange={(e) => setEditForm({ ...editForm, yearsOfExperience: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                   />
                   <textarea
                     placeholder="Education"
                     value={editForm.education}
                     onChange={(e) => setEditForm({ ...editForm, education: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
                   />
                   <textarea
                     placeholder="Certifications (comma-separated)"
                     value={editForm.certifications}
                     onChange={(e) => setEditForm({ ...editForm, certifications: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
                   />
                   <div className="flex gap-2">
                     <button

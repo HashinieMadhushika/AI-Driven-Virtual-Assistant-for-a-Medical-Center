@@ -40,7 +40,8 @@ export default function AcceptInvitePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.message || 'Failed to set password')
 
-      router.push('/login') // ✅ go to your main login page
+      // ✅ redirect to login with auto role selected
+      router.push('/login?role=doctor')
     } catch (err: any) {
       setError(err?.message || 'Something went wrong')
     } finally {
