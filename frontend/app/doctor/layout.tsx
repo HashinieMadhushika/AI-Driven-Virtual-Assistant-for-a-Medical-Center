@@ -9,12 +9,13 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
   const [doctor, setDoctor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // If on login page, skip authentication
+  // If on login or accept-invite page, skip authentication
   const isLoginPage = pathname === '/doctor/login';
+  const isAcceptInvitePage = pathname.startsWith('/doctor/accept-invite');
 
   useEffect(() => {
-    // Skip authentication check for login page
-    if (isLoginPage) {
+    // Skip authentication check for login and accept-invite pages
+    if (isLoginPage || isAcceptInvitePage) {
       setLoading(false);
       return;
     }
@@ -33,7 +34,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
       setDoctor(JSON.parse(userData));
     }
     setLoading(false);
-  }, [router, pathname, isLoginPage]);
+  }, [router, pathname, isLoginPage, isAcceptInvitePage]);
 
   const handleSignOut = () => {
     localStorage.removeItem('token');
@@ -72,8 +73,8 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     }
   ];
 
-  // Show login page without layout
-  if (isLoginPage) {
+  // Show login/accept-invite page without layout
+  if (isLoginPage || isAcceptInvitePage) {
     return <>{children}</>;
   }
 
