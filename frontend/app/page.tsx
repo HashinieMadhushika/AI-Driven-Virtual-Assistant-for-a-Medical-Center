@@ -11,18 +11,12 @@ import {
   HeartPulse,
 } from "lucide-react";
 
+import ChatbotPopup from "./components/chatbot/ChatbotPopup";
+
 const HomePage = () => {
   const router = useRouter();
   const [chatbotAnimated, setChatbotAnimated] = useState(false);
-  
-  // Contact form state
-  const [contactForm, setContactForm] = useState({
-    name: "",
-    email: "",
-    message: ""
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setChatbotAnimated(true), 500);
@@ -30,7 +24,7 @@ const HomePage = () => {
   }, []);
 
   const handleChatbotClick = () => {
-    router.push("/chatbot");
+    setChatbotOpen(true);
   };
 
   const handleJoinClick = () => {
@@ -74,6 +68,9 @@ const HomePage = () => {
       className="min-h-screen bg-linear-to-b from-teal-50 to-white text-slate-900"
       style={{ fontFamily: "'Manrope', 'Segoe UI', sans-serif" }}
     >
+
+      <ChatbotPopup open={chatbotOpen} setOpen={setChatbotOpen} />
+
       <header className="bg-white/90 backdrop-blur border-b border-black/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
@@ -81,7 +78,7 @@ const HomePage = () => {
               <span className="text-white font-bold text-lg">M</span>
             </div>
             <div className="leading-tight">
-              <span className="text-xl font-bold text-slate-800">MediCare AI</span>
+              <span className="text-xl font-bold text-slate-800">MediCare</span>
               <div className="text-xs text-slate-500">Medical Center Platform</div>
             </div>
           </div>
@@ -120,7 +117,7 @@ const HomePage = () => {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
-                  onClick={() => router.push("/chatbot")}
+                  onClick={() => setChatbotOpen(true)}
                   className="bg-teal-700 hover:bg-teal-800 text-white px-6 py-3 rounded-xl font-semibold transition-colors"
                 >
                   Talk to the AI Assistant
@@ -465,3 +462,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
