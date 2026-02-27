@@ -206,15 +206,23 @@ export const createEvent = async (req, res) => {
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     
-    // Provide more specific error messages
+    // Provide more specific error messages based on error type
     let errorMessage = 'Error creating calendar event';
-    if (error.message.includes('tokens not found')) {
+    let statusCode = 500;
+    
+    if (error.message.includes('Invalid email format')) {
+      errorMessage = error.message;
+      statusCode = 400;
+    } else if (error.message.includes('tokens not found')) {
       errorMessage = 'Google Calendar session expired. Please reconnect your Google Calendar.';
     } else if (error.message.includes('invalid_grant')) {
       errorMessage = 'Google Calendar authorization expired. Please reconnect your Google Calendar.';
+    } else if (error.message.includes('Invalid value')) {
+      errorMessage = 'Invalid event details. Please check your input and try again.';
+      statusCode = 400;
     }
     
-    res.status(500).json({ message: errorMessage, error: error.message });
+    res.status(statusCode).json({ message: errorMessage, error: error.message });
   }
 };
 
@@ -263,7 +271,18 @@ export const updateEvent = async (req, res) => {
   } catch (error) {
     console.error('Error updating calendar event:', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ message: 'Error updating calendar event', error: error.message });
+    
+    let errorMessage = 'Error updating calendar event';
+    let statusCode = 500;
+    
+    if (error.message.includes('Invalid email format')) {
+      errorMessage = error.message;
+      statusCode = 400;
+    } else if (error.message.includes('tokens not found')) {
+      errorMessage = 'Google Calendar session expired. Please reconnect your Google Calendar.';
+    }
+    
+    res.status(statusCode).json({ message: errorMessage, error: error.message });
   }
 };
 

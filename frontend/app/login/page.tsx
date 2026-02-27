@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { HeartPulse, Shield, Stethoscope } from 'lucide-react'
 
 type Role = 'admin' | 'doctor'
 
 export default function LoginPage() {
   const router = useRouter()
+  const params = useSearchParams()
 
   const [role, setRole] = useState<Role>('admin')
   const [email, setEmail] = useState('')
@@ -15,6 +16,14 @@ export default function LoginPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // ✅ auto select role from query param (?role=doctor)
+  useEffect(() => {
+    const r = params.get('role')
+    if (r === 'doctor' || r === 'admin') {
+      setRole(r)
+    }
+  }, [params])
 
   const canSubmit = useMemo(() => {
     if (!email || !password) return false
@@ -55,25 +64,21 @@ export default function LoginPage() {
       if (!token) throw new Error('Token missing from response')
       localStorage.setItem('token', token)
 
-      // ✅ Redirect based on selected role (and verify backend)
       if (role === 'admin') {
         const backendRole = data?.user?.role
         if (backendRole && backendRole !== 'admin') {
           throw new Error('This account is not an admin account.')
         }
-        // Store user role and data for admin
+
         localStorage.setItem('userRole', 'admin')
         localStorage.setItem('user', JSON.stringify(data.user))
         router.push('/admin/dashboard')
       } else {
-        const backendRole = data?.doctor?.role || data?.doctor?.role
-        // doctorLogin usually returns { doctor: {...}, token }
-        // if your backend returns { user: {...}, token } for doctors, this still works:
         const possibleRole = data?.doctor?.role || data?.user?.role
         if (possibleRole && possibleRole !== 'doctor') {
           throw new Error('This account is not a doctor account.')
         }
-        // Store user role and data for doctor
+
         localStorage.setItem('userRole', 'doctor')
         localStorage.setItem('user', JSON.stringify(data.doctor || data.user))
         router.push('/doctor/dashboard')

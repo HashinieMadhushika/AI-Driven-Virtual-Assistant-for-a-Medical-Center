@@ -30,7 +30,8 @@ export default function DoctorLayout({
     const userData = localStorage.getItem('user')
 
     if (!token || userRole !== 'doctor') {
-      router.push('/login') // ✅ you already have /login, not /doctor/login
+      // ✅ use replace (prevents back button redirect loops)
+      router.replace('/login')
       return
     }
 
@@ -42,7 +43,7 @@ export default function DoctorLayout({
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('userRole')
-    router.push('/login') // ✅
+    router.replace('/login') // ✅
   }
 
   const navItems = [
