@@ -13,10 +13,22 @@ import {
 
 import ChatbotPopup from "./components/chatbot/ChatbotPopup";
 
+type SubmitMessage = {
+  type: "success" | "error";
+  text: string;
+};
+
 const HomePage = () => {
   const router = useRouter();
   const [chatbotAnimated, setChatbotAnimated] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<SubmitMessage | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setChatbotAnimated(true), 500);

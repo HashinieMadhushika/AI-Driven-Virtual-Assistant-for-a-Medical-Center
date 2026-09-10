@@ -1,10 +1,27 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+const cloudinaryConfig = process.env.CLOUDINARY_URL
+  ? { secure: true }
+  : {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true
+    };
+
+const hasPlaceholderCredentials = [
+  cloudinaryConfig.cloud_name,
+  cloudinaryConfig.api_key,
+  cloudinaryConfig.api_secret
+].some((value) => !value || value.includes('your_cloudinary_'));
+
+if (hasPlaceholderCredentials && !process.env.CLOUDINARY_URL) {
+  throw new Error(
+    'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in backend/.env.'
+  );
+}
+
+cloudinary.config(cloudinaryConfig);
 
 export async function uploadDoctorImage(fileBuffer, fileName) {
   return new Promise((resolve, reject) => {

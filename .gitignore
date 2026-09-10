@@ -37,3 +37,21 @@ coverage/
 # Temporary files
 *.tmp
 *.bak
+
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Chroma DB (local vector DB)
+chroma_db/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db

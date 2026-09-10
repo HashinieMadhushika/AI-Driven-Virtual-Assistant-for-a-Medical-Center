@@ -58,8 +58,9 @@ app.use('/api/contact', contactRoutes);
 (async () => {
   try {
     console.log('🔧 Starting database sync...');
-    // Sync database - alter mode preserves existing data
-    await sequelize.sync({ alter: true });
+    // Create missing tables without attempting unsafe automatic column casts.
+    // Schema changes are handled through migrations.
+    await sequelize.sync();
     
     console.log('✅ Database synced successfully');
     console.log('✅ All models ready');
