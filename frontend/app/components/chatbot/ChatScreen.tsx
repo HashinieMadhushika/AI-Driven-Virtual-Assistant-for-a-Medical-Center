@@ -1,70 +1,111 @@
-// import ChatInput from "./ChatInput";
-
-// interface Props {
-//   feature: string;
-// }
-
-// export default function ChatScreen({ feature }: Props) {
-//   return (
-//     <div className="flex flex-col h-full">
-//       <h2 className="text-xl font-bold text-teal-700 mb-4">
-//         {feature}
-//       </h2>
-
-//       <div className="flex-1 bg-white rounded-2xl p-4 shadow-inner overflow-y-auto space-y-3">
-//         <div className="bg-teal-100 text-sm p-2 rounded-lg w-fit max-w-[80%]">
-//           AI: How can I assist you with {feature}?
-//         </div>
-//       </div>
-
-//       <div className="mt-4">
-//         <ChatInput />
-//       </div>
-//     </div>
-//   );
-// }
-
-
 import ChatInput from "./ChatInput";
-import { ArrowLeft } from "lucide-react";
+import ChatMessages from "./ChatMessages";
+import { useChat } from "./useChat";
+import {
+  ArrowLeft,
+  CalendarCheck,
+  Stethoscope,
+  FileText,
+  MessageCircle,
+  type LucideIcon,
+} from "lucide-react";
 
 interface Props {
   feature: string;
   onBack: () => void;
 }
 
+type FeatureConfig = {
+  icon: LucideIcon;
+  subtitle: string;
+  greeting: string;
+  suggestions: string[];
+};
+
+const featureConfig: Record<string, FeatureConfig> = {
+  "Book Appointment": {
+    icon: CalendarCheck,
+    subtitle: "Schedule a visit with a specialist",
+    greeting:
+      "I can help you book an appointment. 📅 Which specialty or doctor would you like to see, and when suits you?",
+    suggestions: [
+      "Book with a cardiologist",
+      "Earliest available slot",
+      "Reschedule my appointment",
+    ],
+  },
+  "Find Doctor": {
+    icon: Stethoscope,
+    subtitle: "Search by specialization or symptoms",
+    greeting:
+      "Let's find the right doctor for you. 🩺 Tell me a specialty, a doctor's name, or describe your symptoms.",
+    suggestions: [
+      "Show all pediatricians",
+      "Doctors available today",
+      "I have a skin rash",
+    ],
+  },
+  "Check Report": {
+    icon: FileText,
+    subtitle: "Access your medical reports",
+    greeting:
+      "I can help you check your medical reports. 📄 Please share your report reference number, or ask me a question.",
+    suggestions: [
+      "Are my blood test results ready?",
+      "How do I download my report?",
+      "Explain my latest report",
+    ],
+  },
+};
+
+const fallbackConfig: FeatureConfig = {
+  icon: MessageCircle,
+  subtitle: "MediCare AI Assistant",
+  greeting: "How can I help you today?",
+  suggestions: [],
+};
+
 export default function ChatScreen({ feature, onBack }: Props) {
+  const config = featureConfig[feature] ?? fallbackConfig;
+  const Icon = config.icon;
+  const { messages, isTyping, send } = useChat(config.greeting);
+
   return (
-    <div className="flex flex-col h-full">
-
-      {/* Header with Back */}
-      <div className="flex items-center gap-3 mb-4">
-
+    <div className="flex flex-col h-full min-h-0">
+      {/* Header with back button */}
+      <div className="flex items-center gap-3 mb-3">
         <button
+          type="button"
           onClick={onBack}
-          className="p-2 rounded-lg hover:bg-teal-100 transition"
+          className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-teal-300 hover:text-teal-700 hover:bg-teal-50"
+          aria-label="Back to options"
         >
-          <ArrowLeft className="w-5 h-5 text-teal-700" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
 
-        <h2 className="text-xl font-bold text-teal-700">
-          {feature}
-        </h2>
-
-      </div>
-
-      {/* Chat Area */}
-      <div className="flex-1 bg-white rounded-2xl p-4 shadow-inner overflow-y-auto space-y-3">
-
-        <div className="bg-teal-100 text-sm px-4 py-2 rounded-lg w-fit max-w-[80%]">
-          AI: How can I assist you with {feature}?
+        <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm">
+          <Icon className="w-5 h-5" />
         </div>
 
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+            {feature}
+          </h2>
+          <p className="text-xs text-slate-500 truncate">{config.subtitle}</p>
+        </div>
       </div>
 
-      {/* Chat Input */}
-      <div className="mt-4">
-        <ChatInput />
+      {/* Conversation */}
+      <ChatMessages
+        messages={messages}
+        isTyping={isTyping}
+        suggestions={config.suggestions}
+        onSuggestion={send}
+      />
+
+      {/* Chat input */}
+      <div className="mt-3">
+        <ChatInput onSend={send} disabled={isTyping} />
       </div>
     </div>
   );

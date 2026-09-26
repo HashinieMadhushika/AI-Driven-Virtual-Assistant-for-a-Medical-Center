@@ -40,7 +40,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
-    router.push('/');
+    router.push('/homepage');
   };
 
   const navItems = [

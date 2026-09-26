@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import AppointmentForm from '@/admincomponents/AppointmentformAdmin'
+import AppointmentForm from '@/app/admin/components/AppointmentformAdmin'
 import { formatRelativeTime } from '@/app/admin/formatRelativeTime'
 
 type ChatItem = {
