@@ -1,6 +1,6 @@
 import express from 'express';
 import * as appointmentController from '../controllers/appointmentController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import { authenticateToken, authorizeRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 // All routes require authentication
@@ -17,6 +17,9 @@ router.get('/stats', appointmentController.getAppointmentStats);
 
 // Create new appointment
 router.post('/', appointmentController.createAppointment);
+
+// Create new appointment for any doctor (admin only)
+router.post('/admin', authorizeRole('admin'), appointmentController.createAppointmentByAdmin);
 
 // Update appointment
 router.put('/:id', appointmentController.updateAppointment);

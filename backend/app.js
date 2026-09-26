@@ -12,6 +12,8 @@ import doctorRoutes from './src/routes/doctorRoutes.js';
 import calendarRoutes from './src/routes/calendarRoutes.js';
 import appointmentRoutes from './src/routes/appointmentRoutes.js';
 import contactRoutes from './src/routes/contactRoutes.js';
+import dashboardRoutes from './src/routes/dashboardRoutes.js';
+import chatRoutes from './src/routes/chatRoutes.js';
 import sequelize from './src/config/db.js';
 // Import models to ensure they're registered
 import User from './src/models/User.js';
@@ -53,6 +55,10 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/appointments', appointmentRoutes);
 // Contact routes
 app.use('/api/contact', contactRoutes);
+// Admin dashboard routes
+app.use('/api/dashboard', dashboardRoutes);
+// Chat conversation routes (n8n chat agent data)
+app.use('/api/chat', chatRoutes);
 
 // Sync DB and start server
 (async () => {
