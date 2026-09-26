@@ -1,46 +1,102 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, User, FileText, Cake, Hash } from 'lucide-react';
 
-const NewAppointmentForm = () => {
-  const [formData, setFormData] = useState({
-    patientName: '',
-    patientId: '',
-    age: '',
-    date: '',
-    time: '',
-    doctor: '',
-    notes: ''
-  });
+type Doctor = {
+  id: number;
+  name: string;
+  specialization?: string | null;
+};
 
-  const doctors = ['Dr. Smith', 'Dr. Brown', 'Dr. Wilson', 'Dr. Taylor', 'Dr. Anderson'];
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
+
+const emptyForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  dateOfBirth: '',
+  date: '',
+  time: '',
+  doctor: '',
+  notes: ''
+};
+
+const NewAppointmentForm = () => {
+  const [formData, setFormData] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [doctorsError, setDoctorsError] = useState('');
+
+  // Load doctors from the database for the "Select Doctor" dropdown
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API}/api/doctors`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || 'Failed to load doctors');
+        setDoctors(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(error);
+        setDoctorsError(error instanceof Error ? error.message : 'Failed to load doctors');
+      } finally {
+        setDoctorsLoading(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate required fields
-    if (!formData.patientName || !formData.patientId || !formData.age || 
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone ||
         !formData.date || !formData.time || !formData.doctor) {
       alert('Please fill in all required fields');
       return;
     }
 
-    console.log('Appointment Data:', formData);
-    alert('Appointment scheduled successfully!');
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/api/appointments/admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          doctorId: Number(formData.doctor),
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          dateOfBirth: formData.dateOfBirth || null,
+          appointmentDate: formData.date,
+          appointmentTime: formData.time,
+          notes: formData.notes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Failed to schedule appointment');
 
-    // Reset form
-    setFormData({
-      patientName: '',
-      patientId: '',
-      age: '',
-      date: '',
-      time: '',
-      doctor: '',
-      notes: ''
-    });
+      alert('Appointment scheduled successfully!');
+      setFormData(emptyForm);
+    } catch (error) {
+      console.error(error);
+      alert(`❌ ${error instanceof Error ? error.message : 'Failed to schedule appointment'}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -68,46 +124,72 @@ const NewAppointmentForm = () => {
               Patient Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Patient Name */}
+              {/* First Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Patient Name <span className="text-red-500">*</span>
+                  First Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={formData.patientName}
-                  onChange={(e) => handleChange('patientName', e.target.value)}
-                  placeholder="Enter patient name"
+                  value={formData.firstName}
+                  onChange={(e) => handleChange('firstName', e.target.value)}
+                  placeholder="Enter first name"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 />
               </div>
 
-              {/* Patient ID */}
+              {/* Last Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Patient ID <span className="text-red-500">*</span>
+                  Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={formData.patientId}
-                  onChange={(e) => handleChange('patientId', e.target.value)}
-                  placeholder="e.g., PAT-2024-001"
+                  value={formData.lastName}
+                  onChange={(e) => handleChange('lastName', e.target.value)}
+                  placeholder="Enter last name"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 />
               </div>
 
-              {/* Age */}
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Age <span className="text-red-500">*</span>
+                  Email <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
-                  value={formData.age}
-                  onChange={(e) => handleChange('age', e.target.value)}
-                  placeholder="Enter age"
-                  min="0"
-                  max="150"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  placeholder="e.g., patient@example.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  placeholder="e.g., 0771234567"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                />
+              </div>
+
+              {/* Date of Birth */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 />
               </div>
@@ -156,13 +238,25 @@ const NewAppointmentForm = () => {
                 <select
                   value={formData.doctor}
                   onChange={(e) => handleChange('doctor', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition bg-white"
+                  disabled={doctorsLoading || doctors.length === 0}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">Choose a doctor</option>
+                  <option value="">
+                    {doctorsLoading
+                      ? 'Loading doctors...'
+                      : doctors.length === 0
+                        ? 'No doctors available'
+                        : 'Choose a doctor'}
+                  </option>
                   {doctors.map((doctor) => (
-                    <option key={doctor} value={doctor}>{doctor}</option>
+                    <option key={doctor.id} value={String(doctor.id)}>
+                      {doctor.name}{doctor.specialization ? ` — ${doctor.specialization}` : ''}
+                    </option>
                   ))}
                 </select>
+                {doctorsError && (
+                  <p className="mt-2 text-sm text-red-600">❌ {doctorsError}</p>
+                )}
               </div>
             </div>
           </div>
@@ -185,24 +279,18 @@ const NewAppointmentForm = () => {
           {/* Buttons */}
           <div className="flex gap-4 pt-4">
             <button
-              onClick={() => setFormData({
-                patientName: '',
-                patientId: '',
-                age: '',
-                date: '',
-                time: '',
-                doctor: '',
-                notes: ''
-              })}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold"
+              onClick={() => setFormData(emptyForm)}
+              disabled={submitting}
+              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Clear Form
             </button>
             <button
               onClick={handleSubmit}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition font-semibold"
+              disabled={submitting}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Schedule Appointment
+              {submitting ? 'Scheduling...' : 'Schedule Appointment'}
             </button>
           </div>
         </div>

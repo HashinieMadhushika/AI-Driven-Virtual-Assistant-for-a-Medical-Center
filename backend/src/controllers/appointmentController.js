@@ -147,6 +147,84 @@ export const createAppointment = async (req, res) => {
   }
 };
 
+// Create a new appointment (admin) - admin picks the doctor and enters the patient's details
+export const createAppointmentByAdmin = async (req, res) => {
+  try {
+    const {
+      doctorId,
+      firstName,
+      lastName,
+      email,
+      phone,
+      dateOfBirth,
+      appointmentDate,
+      appointmentTime,
+      notes
+    } = req.body;
+
+    // Validate required fields
+    if (!doctorId || !firstName || !lastName || !email || !phone || !appointmentDate || !appointmentTime) {
+      return res.status(400).json({
+        message: 'Doctor, patient first name, last name, email, phone, date, and time are required'
+      });
+    }
+
+    // Check if doctor exists
+    const doctor = await Doctor.findByPk(doctorId);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    // Reuse the patient if the email is already registered, otherwise create a new patient
+    const [patient] = await Patient.findOrCreate({
+      where: { email: email.trim().toLowerCase() },
+      defaults: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        dateOfBirth: dateOfBirth || null
+      }
+    });
+
+    // Create appointment
+    const appointment = await Appointment.create({
+      doctorId: doctor.id,
+      patientId: patient.id,
+      appointmentDate,
+      appointmentTime,
+      type: 'General Consultation',
+      mode: 'In-Person',
+      status: 'Pending',
+      notes
+    });
+
+    // Fetch the created appointment with patient and doctor details
+    const createdAppointment = await Appointment.findByPk(appointment.id, {
+      include: [
+        {
+          model: Patient,
+          attributes: ['id', 'firstName', 'lastName', 'email', 'phone']
+        },
+        {
+          model: Doctor,
+          attributes: ['id', 'name', 'specialization']
+        }
+      ]
+    });
+
+    res.status(201).json({
+      message: 'Appointment created successfully',
+      appointment: createdAppointment
+    });
+  } catch (error) {
+    console.error('Error creating appointment (admin):', error);
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ message: error.errors.map((e) => e.message).join(', ') });
+    }
+    res.status(500).json({ message: 'Error creating appointment', error: error.message });
+  }
+};
+
 // Update appointment
 export const updateAppointment = async (req, res) => {
   try {
