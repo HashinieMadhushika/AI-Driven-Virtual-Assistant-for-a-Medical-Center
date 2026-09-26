@@ -1,26 +1,5 @@
-// interface Props {
-//   title: string;
-//   description: string;
-//   onClick: () => void;
-// }
-
-// export default function FeatureCard({ title, description, onClick }: Props) {
-//   return (
-//     <div
-//       onClick={onClick}
-//       className="p-4 bg-white rounded-xl shadow hover:shadow-lg cursor-pointer transition border border-gray-100 hover:scale-[1.03]"
-//     >
-//       <h3 className="text-md font-semibold text-emerald-700">
-//         {title}
-//       </h3>
-//       <p className="text-xs text-gray-500 mt-1">
-//         {description}
-//       </p>
-//     </div>
-//   );
-// }
-
 import React from "react";
+import { ChevronRight } from "lucide-react";
 
 interface Props {
   title: string;
@@ -34,21 +13,23 @@ export default function FeatureCard({ title, description, icon, onClick }: Props
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left p-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition border border-slate-200 hover:border-teal-200"
+      className="group w-full text-left p-4 bg-white rounded-2xl border border-slate-200 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-teal-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-200"
     >
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-700 border border-teal-100">
+      <div className="flex items-center gap-3">
+        <div className="shrink-0 w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 transition group-hover:bg-teal-600 group-hover:text-white">
           {icon}
         </div>
 
-        <div className="min-w-0">
-          <h3 className="text-base font-semibold text-teal-700 truncate">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-slate-800 truncate">
             {title}
           </h3>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-0.5">
             {description}
           </p>
         </div>
+
+        <ChevronRight className="shrink-0 w-4 h-4 text-slate-300 transition group-hover:text-teal-600 group-hover:translate-x-0.5" />
       </div>
     </button>
   );

@@ -1,6 +1,6 @@
 // app/admin/layout.tsx
-import HeaderAdmin from "@/admincomponents/HeaderAdmin";
-import SidebarAdmin from "@/admincomponents/SidebarAdmin";
+import HeaderAdmin from "@/app/admin/components/HeaderAdmin";
+import SidebarAdmin from "@/app/admin/components/SidebarAdmin";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (

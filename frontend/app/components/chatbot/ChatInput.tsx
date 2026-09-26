@@ -1,45 +1,28 @@
-// "use client";
-
-// import { FaMicrophone, FaPaperclip, FaPaperPlane } from "react-icons/fa";
-
-// export default function ChatInput() {
-//   return (
-//     <div className="flex items-center gap-2 mt-3 border rounded-full px-3 py-2 bg-white shadow">
-//       <FaPaperclip className="text-gray-500 cursor-pointer" />
-//       <input
-//         type="text"
-//         placeholder="Type a message..."
-//         className="flex-1 outline-none text-sm"
-//       />
-//       <FaMicrophone className="text-teal-600 cursor-pointer" />
-//       <FaPaperPlane className="text-emerald-600 cursor-pointer" />
-//     </div>
-//   );
-// }
-
 "use client";
 
 import { useState } from "react";
-import { Paperclip, Mic, Send } from "lucide-react";
+import { Paperclip, Mic, SendHorizontal } from "lucide-react";
 
 type Props = {
   onSend?: (text: string) => void;
+  disabled?: boolean;
 };
 
-export default function ChatInput({ onSend }: Props) {
+export default function ChatInput({ onSend, disabled = false }: Props) {
   const [text, setText] = useState("");
+  const canSend = !!onSend && !disabled && text.trim().length > 0;
 
   const handleSend = () => {
-    if (!onSend) return;
+    if (!canSend) return;
     onSend(text);
     setText("");
   };
 
   return (
-    <div className="flex items-center gap-2 border border-slate-300 rounded-full px-3 py-2 bg-white shadow">
+    <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 pl-2 shadow-sm transition focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-100">
       <button
         type="button"
-        className="text-slate-500 hover:text-teal-700 transition"
+        className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition"
         aria-label="Attach file"
       >
         <Paperclip className="w-5 h-5" />
@@ -52,14 +35,14 @@ export default function ChatInput({ onSend }: Props) {
           if (e.key === "Enter") handleSend();
         }}
         type="text"
-        placeholder="Type a message..."
-        className="flex-1 outline-none text-sm"
+        placeholder="Type your message..."
+        className="flex-1 min-w-0 bg-transparent px-1 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
       />
 
       <button
         type="button"
-        className="text-teal-700 hover:text-teal-800 transition"
-        aria-label="Voice"
+        className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition"
+        aria-label="Voice input"
       >
         <Mic className="w-5 h-5" />
       </button>
@@ -67,10 +50,11 @@ export default function ChatInput({ onSend }: Props) {
       <button
         type="button"
         onClick={handleSend}
-        className="text-emerald-700 hover:text-emerald-800 transition"
-        aria-label="Send"
+        disabled={!canSend}
+        className="p-2.5 rounded-xl bg-teal-600 text-white shadow-sm transition hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+        aria-label="Send message"
       >
-        <Send className="w-5 h-5" />
+        <SendHorizontal className="w-4 h-4" />
       </button>
     </div>
   );
