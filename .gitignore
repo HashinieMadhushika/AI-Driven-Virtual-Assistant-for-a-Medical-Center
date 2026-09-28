@@ -1,57 +1,94 @@
+# =========================
 # Dependencies
+# =========================
 node_modules/
-package-lock.json
+**/node_modules/
 
-# Environment variables - NEVER commit these!
+# =========================
+# Environment Variables
+# NEVER commit these
+# =========================
 .env
 .env.local
-.env.example
 .env.production
+
 backend/.env
 frontend/.env
+rag/.env
 
-# Production
+# Ignore .env files anywhere in project
+**/.env
+
+# Keep example environment files
+!.env.example
+!**/.env.example
+
+
+# =========================
+# Production / Build
+# =========================
 build/
 dist/
 .next/
 out/
 
+
+# =========================
 # Logs
+# =========================
 *.log
 npm-debug.log*
 error.log
 
+
+# =========================
 # IDE
+# =========================
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+
+# =========================
+# OS Files
+# =========================
 .DS_Store
 Thumbs.db
 
+
+# =========================
 # Testing
+# =========================
 coverage/
 
-# Temporary files
+
+# =========================
+# Temporary Files
+# =========================
 *.tmp
 *.bak
 
-# Virtual environment
+
+# =========================
+# Python Virtual Environment
+# =========================
 .venv/
 venv/
+**/.venv/
+**/venv/
 
-# Python cache
+
+# =========================
+# Python Cache
+# =========================
 __pycache__/
 *.pyc
+*.pyo
 
-# Chroma DB (local vector DB)
+
+# =========================
+# Old Chroma Vector Database
+# =========================
 chroma_db/
-
-# Environment variables
-.env
-
-# OS files
-.DS_Store
-Thumbs.db
+**/chroma_db/
