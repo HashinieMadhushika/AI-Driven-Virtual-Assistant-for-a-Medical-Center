@@ -5,52 +5,37 @@ import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 dotenv.config()
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@gmail.com'
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '123456'
+
 export const registerAdmin = async (req, res) => {
-  const { name, email, password } = req.body
-
-  try {
-    if (!name || !email || !password) {
-      return res.status(400).json({ msg: 'name, email, password are required' })
-    }
-
-    const existing = await User.findOne({ where: { email } })
-    if (existing) return res.status(400).json({ msg: 'Email already exists' })
-
-    const hashed = await bcrypt.hash(password, 10)
-    const user = await User.create({
-      name,
-      email,
-      password: hashed,
-      role: 'admin',
-    })
-
-    // ✅ NEVER return password
-    const { password: _pw, ...safeUser } = user.toJSON()
-
-    return res.status(201).json({
-      msg: 'Admin registered successfully',
-      user: safeUser,
-    })
-  } catch (err) {
-    console.error(err)
-    return res.status(500).json({ msg: 'Database error' })
-  }
+  return res.status(403).json({ msg: 'Admin registration is disabled' })
 }
 
 export const loginAdmin = async (req, res) => {
   const { email, password } = req.body
 
   try {
-    const admin = await User.findOne({ where: { email } })
-    if (!admin) return res.status(404).json({ msg: 'User not found' })
-
-    // ✅ ensure only admins can login here
-    if (admin.role !== 'admin') {
-      return res.status(403).json({ msg: 'Not an admin account' })
+    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ msg: 'Invalid admin credentials' })
     }
 
-    const match = await bcrypt.compare(password, admin.password)
-    if (!match) return res.status(400).json({ msg: 'Wrong password' })
+    let admin = await User.findOne({ where: { email: ADMIN_EMAIL } })
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10)
+
+    if (!admin) {
+      admin = await User.create({
+        name: 'Admin',
+        email: ADMIN_EMAIL,
+        password: passwordHash,
+        role: 'admin',
+      })
+    } else {
+      const passwordMatches = await bcrypt.compare(ADMIN_PASSWORD, admin.password)
+      if (admin.role !== 'admin' || !passwordMatches) {
+        await admin.update({ password: passwordHash, role: 'admin' })
+      }
+    }
 
     const token = jwt.sign(
       { id: admin.id, email: admin.email, role: admin.role },
