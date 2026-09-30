@@ -15,6 +15,7 @@ import Patient from './models/Patient.js';
 import Appointment from './models/Appointment.js';
 import ChatSession from './models/ChatSession.js';
 import ChatMessage from './models/ChatMessage.js';
+import ChatAccessCode from './models/ChatAccessCode.js';
 import cors from 'cors';
 
 // Define model relationships

@@ -8,37 +8,47 @@ import DoctorCards, { type Doctor } from "./DoctorCards";
 import AppointmentStepPicker from "./AppointmentStepPicker";
 import AppointmentConfirmationCard from "./AppointmentConfirmationCard";
 import BookingConfirmationMessage from "./BookingConfirmationMessage";
+import type { PreviousChat } from "./UserInfoScreen";
 
 type BookingStep = "date" | "time" | "patient" | "none";
 type BookingAction = "start_booking" | "check_time_slots" | "select_time_slot";
+type ChatMessage = {
+  role: "ai" | "user";
+  text: string;
+  imageName?: string;
+  doctors?: Doctor[];
+  bookingStep?: BookingStep;
+  timeSlots?: Array<string | { label: string; booked?: boolean }>;
+  appointmentPreview?: { doctor: Doctor; date: string; time: string };
+  bookingConfirmed?: boolean;
+  appointmentId?: string | number;
+  bookingPrompt?: "pending" | "accepted" | "declined";
+  historySaved?: boolean;
+};
 
 interface Props {
   onSelect: (feature: string) => void;
   visitor: { firstName: string; email: string };
+  previousChat: PreviousChat | null;
 }
 
-export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
-  const [sessionId] = useState(() => crypto.randomUUID());
+export default function FeatureSelectionScreen({ onSelect, visitor, previousChat }: Props) {
+  const [sessionId] = useState(() => previousChat?.sessionId ?? crypto.randomUUID());
   const [isSending, setIsSending] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
-  const [messages, setMessages] = useState<
-    {
-      role: "ai" | "user";
-      text: string;
-      imageName?: string;
-      doctors?: Doctor[];
-      bookingStep?: BookingStep;
-      timeSlots?: Array<string | { label: string; booked?: boolean }>;
-      appointmentPreview?: { doctor: Doctor; date: string; time: string };
-      bookingConfirmed?: boolean;
-      appointmentId?: string | number;
-      bookingPrompt?: "pending" | "accepted" | "declined";
-    }[]
-  >([
-    { role: "ai", text: "Hi! You can ask me anything, or choose one option above." },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (previousChat?.messages.length) {
+      return previousChat.messages.map((message) => ({
+        role: message.role === "assistant" ? "ai" as const : "user" as const,
+        text: message.content
+      }));
+    }
 
+    return [
+      { role: "ai" as const, text: "Hi! You can ask me anything, or choose one option above." }
+    ];
+  });
   const handleSend = async (
     text: string,
     image?: File,
@@ -88,6 +98,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
         timeSlots?: Array<string | { label: string; booked?: boolean }>;
         bookingConfirmed?: boolean;
         appointmentId?: string | number;
+        historySaved?: boolean;
       };
       if (!response.ok || !data.reply) throw new Error("Chat request failed");
       const startsDoctorBooking = booking?.action === "start_booking";
@@ -100,7 +111,8 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
           : data.bookingStep,
         timeSlots: data.timeSlots,
         bookingConfirmed: data.bookingConfirmed,
-        appointmentId: data.appointmentId
+        appointmentId: data.appointmentId,
+        historySaved: data.historySaved
       }]);
     } catch {
       setMessages((prev) => [
@@ -158,6 +170,11 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
                 </>
               )}
             </div> : null}
+            {m.role === "ai" && m.historySaved === false ? (
+              <p className="mt-1 text-xs text-amber-700" role="status">
+                This chat could not be saved. Your previous conversation may not be available next time.
+              </p>
+            ) : null}
             {m.bookingPrompt === "pending" ? (
               <div className="mt-3 flex gap-2">
                 <button

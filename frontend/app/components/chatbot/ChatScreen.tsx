@@ -54,6 +54,7 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
     appointmentPreview?: { doctor: Doctor; date: string; time: string };
     bookingConfirmed?: boolean;
     appointmentId?: string | number;
+    historySaved?: boolean;
   }[]>([
     { role: "ai", text: `How can I assist you with ${feature}?` }
   ]);
@@ -110,6 +111,7 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
         timeSlots?: Array<string | { label: string; booked?: boolean }>;
         bookingConfirmed?: boolean;
         appointmentId?: string | number;
+        historySaved?: boolean;
       };
       if (!response.ok || !data.reply) throw new Error("Chat request failed");
       const startsDoctorBooking = booking?.action === "start_booking";
@@ -122,7 +124,8 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
           : data.bookingStep,
         timeSlots: data.timeSlots,
         bookingConfirmed: data.bookingConfirmed,
-        appointmentId: data.appointmentId
+        appointmentId: data.appointmentId,
+        historySaved: data.historySaved
       }]);
     } catch {
       setMessages((current) => [
@@ -170,6 +173,11 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
                 </>
               )}
             </div> : null}
+            {message.role === "ai" && message.historySaved === false ? (
+              <p className="mt-1 text-xs text-amber-700" role="status">
+                This chat could not be saved. Your previous conversation may not be available next time.
+              </p>
+            ) : null}
             {message.role === "ai" && message.bookingConfirmed ? (
               <BookingConfirmationMessage message={message.text} appointmentId={message.appointmentId} />
             ) : null}
