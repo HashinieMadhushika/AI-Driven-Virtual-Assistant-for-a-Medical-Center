@@ -15,9 +15,15 @@ type Props = {
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
+type Visitor = {
+  firstName: string;
+  email: string;
+};
+
 export default function ChatbotPopup({ open, setOpen }: Props) {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [selectedFeature, setSelectedFeature] = useState("");
+  const [visitor, setVisitor] = useState<Visitor>({ firstName: "", email: "" });
 
   if (!open) return null;
 
@@ -65,11 +71,17 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
           )}
 
           {screen === "userinfo" && (
-            <UserInfoScreen onNext={() => setScreen("features")} />
+            <UserInfoScreen
+              onNext={(details) => {
+                setVisitor(details);
+                setScreen("features");
+              }}
+            />
           )}
 
           {screen === "features" && (
             <FeatureSelectionScreen
+              visitor={visitor}
               onSelect={(feature) => {
                 setSelectedFeature(feature);
                 setScreen("chat");
@@ -80,6 +92,7 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
           {screen === "chat" && (
             <ChatScreen
               feature={selectedFeature}
+              visitor={visitor}
               onBack={() => setScreen("features")}
             />
           )}

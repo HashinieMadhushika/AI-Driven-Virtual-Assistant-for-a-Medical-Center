@@ -1,7 +1,7 @@
 import { QueryTypes } from 'sequelize';
 import sequelize from '../config/db.js';
-
-// chat_sessions / chat_messages are written by the n8n chat agent (no Sequelize model)
+import ChatSession from '../models/ChatSession.js';
+import ChatMessage from '../models/ChatMessage.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,6 +63,43 @@ const toSession = (r) => ({
     ? { role: r.lastRole, content: r.lastContent, createdAt: r.lastCreatedAt }
     : null
 });
+
+export const saveMessages = async (req, res) => {
+  try {
+    const { sessionId, firstName, email, messages } = req.body;
+    if (
+      !UUID_PATTERN.test(sessionId ?? '') ||
+      typeof firstName !== 'string' || !firstName.trim() ||
+      typeof email !== 'string' || !email.trim() ||
+      !Array.isArray(messages) || messages.length === 0 ||
+      messages.some((message) =>
+        !['assistant', 'user', 'system'].includes(message?.role) ||
+        typeof message.content !== 'string'
+      )
+    ) {
+      return res.status(400).json({ error: 'Valid session details and messages are required' });
+    }
+
+    await ChatSession.findOrCreate({
+      where: { id: sessionId },
+      defaults: {
+        id: sessionId,
+        firstName: firstName.trim(),
+        email: email.trim().toLowerCase()
+      }
+    });
+
+    await Promise.all(messages.map((message) => ChatMessage.findOrCreate({
+      where: { sessionId, role: message.role, content: message.content },
+      defaults: { sessionId, role: message.role, content: message.content }
+    })));
+
+    return res.status(201).json({ sessionId });
+  } catch (error) {
+    console.error('Failed to save chat messages:', error);
+    return res.status(500).json({ error: 'Failed to save chat messages' });
+  }
+};
 
 // Get all chat sessions, most recently active first
 export const getChatSessions = async (req, res) => {

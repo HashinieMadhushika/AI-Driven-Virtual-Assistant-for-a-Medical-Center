@@ -20,12 +20,16 @@ import User from './src/models/User.js';
 import Doctor from './src/models/Doctor.js';
 import Patient from './src/models/Patient.js';
 import Appointment from './src/models/Appointment.js';
+import ChatSession from './src/models/ChatSession.js';
+import ChatMessage from './src/models/ChatMessage.js';
 
 // Define model relationships
 Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });
 Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
 Patient.hasMany(Appointment, { foreignKey: 'patientId' });
 Appointment.belongsTo(Patient, { foreignKey: 'patientId' });
+ChatSession.hasMany(ChatMessage, { foreignKey: 'sessionId', as: 'messages' });
+ChatMessage.belongsTo(ChatSession, { foreignKey: 'sessionId', as: 'session' });
 
 const app = express();
 const PORT = process.env.PORT || 5000;

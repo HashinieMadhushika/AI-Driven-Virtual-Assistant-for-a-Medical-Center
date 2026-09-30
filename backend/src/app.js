@@ -6,12 +6,15 @@ import doctorRoutes from './routes/doctorRoutes.js';
 import calendarRoutes from './routes/calendarRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import sequelize from './config/db.js';
 // Import models to ensure they're registered
 import User from './models/User.js';
 import Doctor from './models/Doctor.js';
 import Patient from './models/Patient.js';
 import Appointment from './models/Appointment.js';
+import ChatSession from './models/ChatSession.js';
+import ChatMessage from './models/ChatMessage.js';
 import cors from 'cors';
 
 // Define model relationships
@@ -20,6 +23,8 @@ Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
 
 Patient.hasMany(Appointment, { foreignKey: 'patientId' });
 Appointment.belongsTo(Patient, { foreignKey: 'patientId' });
+ChatSession.hasMany(ChatMessage, { foreignKey: 'sessionId', as: 'messages' });
+ChatMessage.belongsTo(ChatSession, { foreignKey: 'sessionId', as: 'session' });
 
 dotenv.config();
 const app = express();
@@ -43,6 +48,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/appointments', appointmentRoutes);
 // Contact routes
 app.use('/api/contact', contactRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Sync DB and start server
 (async () => {

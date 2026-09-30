@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { User, Mail, ArrowRight, Lock } from "lucide-react";
+import { User, Mail } from "lucide-react";
 
 interface Props {
-  onNext: () => void;
+  onNext: (visitor: { firstName: string; email: string }) => void;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,7 +24,7 @@ export default function UserInfoScreen({ onNext }: Props) {
     e.preventDefault();
     setSubmitted(true);
     if (nameError || emailError) return;
-    onNext();
+    onNext({ firstName: name.trim(), email: email.trim() });
   };
 
   const inputClass = (hasError: boolean) =>
@@ -98,20 +98,12 @@ export default function UserInfoScreen({ onNext }: Props) {
           )}
         </div>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          className="group mt-5 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 py-2 font-semibold text-white shadow-lg shadow-teal-600/25 transition hover:bg-teal-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300"
-        >
-          Start Chat
-          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-        </button>
-
-        {/* Privacy note */}
-        <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-          <Lock className="w-3.5 h-3.5 text-teal-600" />
-          Your details are kept private and never shared.
-        </p>
+      <button
+        type="submit"
+        className="w-50 mt-10 text-center ml-90 bg-emerald-600 text-white py-2 rounded-xl hover:bg-emerald-700 transition"
+      >
+        Start Chat
+      </button>
       </form>
     </div>
   );

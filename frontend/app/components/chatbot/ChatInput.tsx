@@ -1,29 +1,77 @@
 "use client";
 
-import { useState } from "react";
-import { Paperclip, Mic, SendHorizontal } from "lucide-react";
+import { useRef, useState } from "react";
+import { Paperclip, Mic, Send } from "lucide-react";
 
 type Props = {
-  onSend?: (text: string) => void;
+  onSend?: (text: string, image?: File) => void;
   disabled?: boolean;
 };
 
 export default function ChatInput({ onSend, disabled = false }: Props) {
   const [text, setText] = useState("");
-  const canSend = !!onSend && !disabled && text.trim().length > 0;
+  const [image, setImage] = useState<File | undefined>();
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
-    if (!canSend) return;
-    onSend(text);
+    if (disabled || !onSend || (!text.trim() && !image)) return;
+    onSend(text, image);
     setText("");
+    setImage(undefined);
+    setError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
-    <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 pl-2 shadow-sm transition focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-100">
+    <div>
+      {image ? (
+        <div className="mb-2 flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+          <span className="truncate text-slate-700">Image: {image.name}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setImage(undefined);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            className="ml-3 text-slate-500 hover:text-rose-600"
+            aria-label="Remove attached image"
+          >
+            Remove
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="mb-2 text-xs text-rose-600">{error}</p> : null}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        aria-label="Choose an image"
+        onChange={(event) => {
+          const selected = event.target.files?.[0];
+          if (!selected) return;
+          if (!selected.type.startsWith("image/")) {
+            setError("Choose an image file.");
+            event.target.value = "";
+            return;
+          }
+          if (selected.size > 10 * 1024 * 1024) {
+            setError("Image must be 10 MB or smaller.");
+            event.target.value = "";
+            return;
+          }
+          setError("");
+          setImage(selected);
+        }}
+      />
+      <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 shadow">
       <button
         type="button"
-        className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition"
-        aria-label="Attach file"
+        onClick={() => fileInputRef.current?.click()}
+        className="text-slate-500 hover:text-teal-700 transition"
+        aria-label="Attach image"
+        title="Attach image"
       >
         <Paperclip className="w-5 h-5" />
       </button>
@@ -32,7 +80,10 @@ export default function ChatInput({ onSend, disabled = false }: Props) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleSend();
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
         }}
         type="text"
         placeholder="Type your message..."
@@ -50,12 +101,13 @@ export default function ChatInput({ onSend, disabled = false }: Props) {
       <button
         type="button"
         onClick={handleSend}
-        disabled={!canSend}
+        disabled={disabled || !onSend || (!text.trim() && !image)}
         className="p-2.5 rounded-xl bg-teal-600 text-white shadow-sm transition hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
         aria-label="Send message"
       >
-        <SendHorizontal className="w-4 h-4" />
+        <Send className="w-4 h-4" />
       </button>
+      </div>
     </div>
   );
 }

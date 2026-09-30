@@ -5,10 +5,39 @@ type ChatMessage = {
   content: string;
 };
 
+type ChatDoctor = {
+  id: number | string;
+  name: string;
+  specialization?: string | null;
+  designation?: string | null;
+  profileImageUrl?: string | null;
+  yearsOfExperience?: number | null;
+  availableTimes?: string[] | string | Record<string, unknown> | null;
+  weeklySchedule?: Record<string, unknown>;
+};
+
+type BookingStep = "date" | "time" | "patient" | "none";
+type WebhookTimeSlot = string | {
+  label?: string;
+  value?: string;
+  time?: string;
+  booked?: boolean;
+  isBooked?: boolean;
+  available?: boolean;
+};
+
 type ChatRequest = {
   messages: ChatMessage[];
   context?: ChatContext;
   sessionId?: string;
+  firstName?: string;
+  email?: string;
+  bookingAction?: "start_booking" | "check_time_slots" | "select_time_slot";
+  selectedDoctor?: ChatDoctor | string;
+  appointmentDate?: string;
+  appointmentTime?: string;
+  displayDate?: string;
+  dayName?: string;
 };
 
 type PublicDoctor = {
@@ -152,7 +181,69 @@ const formatDoctorList = (doctors: PublicDoctor[]) => {
 };
 
 export async function POST(request: Request) {
-  const { messages, context, sessionId } = (await request.json()) as ChatRequest;
+  let payload: ChatRequest;
+  let image: File | undefined;
+
+  if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const messagesValue = formData.get("messages");
+    const imageValue = formData.get("image");
+
+    if (typeof messagesValue !== "string") {
+      return NextResponse.json({ error: "Messages are required" }, { status: 400 });
+    }
+
+    try {
+      payload = {
+        messages: JSON.parse(messagesValue) as ChatMessage[],
+        sessionId: String(formData.get("sessionId") ?? ""),
+        firstName: String(formData.get("firstName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        bookingAction: String(formData.get("bookingAction") ?? "") as ChatRequest["bookingAction"],
+        selectedDoctor: (() => {
+          const value = formData.get("selectedDoctor");
+          if (typeof value !== "string" || !value) return undefined;
+          try {
+            return JSON.parse(value) as ChatDoctor;
+          } catch {
+            return value;
+          }
+        })(),
+        appointmentDate: String(formData.get("appointmentDate") ?? ""),
+        appointmentTime: String(formData.get("appointmentTime") ?? ""),
+        displayDate: String(formData.get("displayDate") ?? ""),
+        dayName: String(formData.get("dayName") ?? "")
+      };
+    } catch {
+      return NextResponse.json({ error: "Invalid messages payload" }, { status: 400 });
+    }
+
+    if (imageValue instanceof File) {
+      if (!imageValue.type.startsWith("image/")) {
+        return NextResponse.json({ error: "Only image uploads are supported" }, { status: 400 });
+      }
+      if (imageValue.size > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: "Image must be 10 MB or smaller" }, { status: 413 });
+      }
+      image = imageValue;
+    }
+  } else {
+    payload = (await request.json()) as ChatRequest;
+  }
+
+  const {
+    messages,
+    context,
+    sessionId,
+    firstName,
+    email,
+    bookingAction,
+    selectedDoctor,
+    appointmentDate,
+    appointmentTime,
+    displayDate,
+    dayName
+  } = payload;
 
   if (!messages || messages.length === 0) {
     return NextResponse.json({ error: "No messages provided" }, { status: 400 });
@@ -160,30 +251,210 @@ export async function POST(request: Request) {
 
   const lastMessage = messages[messages.length - 1];
   const backendBaseUrl = process.env.BACKEND_BASE_URL ?? "http://localhost:5000";
-  const bookingDraft: BookingDraft = context?.bookingDraft ?? { step: "none" };
-  const rescheduleDraft: RescheduleDraft = context?.rescheduleDraft ?? { step: "none" };
-  const cancelDraft: CancelDraft = context?.cancelDraft ?? { step: "none" };
   const logMessages = async (replyText: string) => {
-    if (!sessionId || !lastMessage) {
+    if (!sessionId || !lastMessage || !firstName || !email) {
       return;
     }
 
     try {
-      await fetch(`${backendBaseUrl}/api/chat/messages`, {
+      const historyResponse = await fetch(`${backendBaseUrl}/api/chat/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
+          firstName,
+          email,
           messages: [
             { role: lastMessage.role, content: lastMessage.content },
             { role: "assistant", content: replyText }
           ]
         })
       });
+
+      if (!historyResponse.ok) {
+        console.error("Chat history log failed:", await historyResponse.text());
+      }
     } catch (error) {
       console.error("Chat history log failed:", error);
     }
   };
+
+  const n8nWebhookUrl = process.env.N8N_CHAT_WEBHOOK_URL;
+
+  if (n8nWebhookUrl && lastMessage?.role === "user") {
+    try {
+      const webhookBody = image ? new FormData() : null;
+      const selectedDoctorRecord: Record<string, unknown> | undefined = typeof selectedDoctor === "string"
+        ? { doctorName: selectedDoctor }
+        : selectedDoctor
+          ? {
+              ...selectedDoctor,
+              doctorId: selectedDoctor.id,
+              doctorName: selectedDoctor.name,
+              weeklySchedule: selectedDoctor.weeklySchedule ?? selectedDoctor.availableTimes
+            }
+          : undefined;
+      const messagePayload = {
+        chatInput: lastMessage.content,
+        message: lastMessage.content,
+        messages,
+        sessionId: sessionId ?? "anonymous",
+        firstName,
+        email,
+        action: bookingAction === "check_time_slots"
+          ? "select_date"
+          : bookingAction === "select_time_slot"
+            ? "confirm_booking"
+            : bookingAction === "start_booking"
+              ? "select_doctor"
+              : undefined,
+        bookingAction,
+        selectedDoctor: selectedDoctorRecord,
+        weeklySchedule: selectedDoctorRecord?.weeklySchedule,
+        doctorId: selectedDoctorRecord?.doctorId,
+        doctorName: selectedDoctorRecord?.doctorName,
+        selectedDate: appointmentDate,
+        appointmentDate,
+        displayDate,
+        dayName,
+        selectedTime: appointmentTime,
+        appointmentTime
+      };
+
+      if (webhookBody && image) {
+        for (const [key, value] of Object.entries(messagePayload)) {
+          webhookBody.set(key, typeof value === "string" ? value : JSON.stringify(value));
+        }
+        webhookBody.set("image", image, image.name);
+      }
+
+      const response = await fetch(n8nWebhookUrl, {
+        method: "POST",
+        ...(webhookBody
+          ? { body: webhookBody }
+          : {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(messagePayload)
+            })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook returned ${response.status}`);
+      }
+
+      const responseData = (await response.json()) as {
+        output?: string;
+        response?: string;
+        responseMessage?: string;
+        text?: string;
+        reply?: string;
+        message?: string;
+        doctors?: ChatDoctor[];
+        bookingStep?: BookingStep;
+        intent?: string;
+        bookingConfirmed?: boolean;
+        success?: boolean;
+        appointmentId?: string | number;
+        id?: string | number;
+        doctorName?: string;
+        selectedDate?: string;
+        selectedTime?: string;
+        timeSlots?: WebhookTimeSlot[] | string;
+        availableTimeSlots?: WebhookTimeSlot[] | string;
+      } | Array<{
+        output?: string;
+        response?: string;
+        responseMessage?: string;
+        text?: string;
+        reply?: string;
+        message?: string;
+        doctors?: ChatDoctor[];
+        bookingStep?: BookingStep;
+        intent?: string;
+        bookingConfirmed?: boolean;
+        success?: boolean;
+        appointmentId?: string | number;
+        id?: string | number;
+        doctorName?: string;
+        selectedDate?: string;
+        selectedTime?: string;
+        timeSlots?: WebhookTimeSlot[] | string;
+        availableTimeSlots?: WebhookTimeSlot[] | string;
+      }>;
+      const data = Array.isArray(responseData) ? responseData[0] : responseData;
+      const doctors = Array.isArray(data.doctors) ? data.doctors : undefined;
+      const rawTimeSlots = Array.isArray(data.timeSlots)
+        ? data.timeSlots
+        : typeof data.timeSlots === "string"
+          ? JSON.parse(data.timeSlots) as WebhookTimeSlot[]
+          : Array.isArray(data.availableTimeSlots)
+          ? data.availableTimeSlots
+          : typeof data.availableTimeSlots === "string"
+            ? JSON.parse(data.availableTimeSlots) as WebhookTimeSlot[]
+            : undefined;
+      const timeSlots = rawTimeSlots
+        ?.map((slot) => typeof slot === "string"
+          ? { label: slot, booked: false }
+          : {
+              label: slot.label ?? slot.value ?? slot.time ?? "",
+              booked: slot.booked === true || slot.isBooked === true || slot.available === false
+            })
+        .filter((slot) => Boolean(slot.label));
+      const bookingStep = data.bookingStep ??
+        (data.intent === "time_selection" || timeSlots?.length ? "time" : undefined);
+      const bookingConfirmed = data.bookingConfirmed === true ||
+        (bookingAction === "select_time_slot" && data.success === true) ||
+        data.intent === "booking_confirmed" || data.intent === "appointment_booked";
+      const rawReply = data.responseMessage ?? data.output ?? data.response ?? data.text ?? data.reply ?? data.message;
+      let reply = rawReply;
+
+      if (rawReply) {
+        try {
+          const parsedReply = JSON.parse(rawReply) as {
+            responseMessage?: string;
+            reply?: string;
+            output?: string;
+            text?: string;
+            message?: string;
+          };
+          reply = parsedReply.responseMessage ?? parsedReply.reply ?? parsedReply.output ??
+            parsedReply.text ?? parsedReply.message ?? rawReply;
+        } catch {
+          reply = rawReply;
+        }
+      }
+
+      reply ??=
+        (doctors?.length ? "Here are the doctors currently available:" : undefined) ??
+        (bookingConfirmed
+          ? `Your appointment with ${data.doctorName ?? (typeof selectedDoctorRecord?.doctorName === "string" ? selectedDoctorRecord.doctorName : "the selected doctor")} is confirmed for ${data.selectedDate ?? appointmentDate ?? "the selected date"} at ${data.selectedTime ?? appointmentTime ?? "the selected time"}.`
+          : undefined);
+
+      if (!reply) {
+        throw new Error("Webhook response did not contain output text");
+      }
+
+      await logMessages(reply);
+      return NextResponse.json({
+        reply,
+        doctors,
+        bookingStep,
+        timeSlots,
+        bookingConfirmed,
+        appointmentId: data.appointmentId ?? data.id
+      });
+    } catch (error) {
+      console.error("n8n chat webhook failed:", error);
+      return NextResponse.json(
+        { reply: "I could not reach the assistant right now. Please try again shortly." },
+        { status: 502 }
+      );
+    }
+  }
+
+  const bookingDraft: BookingDraft = context?.bookingDraft ?? { step: "none" };
+  const rescheduleDraft: RescheduleDraft = context?.rescheduleDraft ?? { step: "none" };
+  const cancelDraft: CancelDraft = context?.cancelDraft ?? { step: "none" };
 
   const respondWithLog = async (payload: { reply: string; nextContext?: ChatContext }) => {
     await logMessages(payload.reply);

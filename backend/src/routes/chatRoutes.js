@@ -1,8 +1,10 @@
 import express from 'express';
-import { getChatSessions, getChatSessionMessages } from '../controllers/chatController.js';
+import { getChatSessions, getChatSessionMessages, saveMessages } from '../controllers/chatController.js';
 import { authenticateToken, authorizeRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.post('/messages', saveMessages);
 
 // Chat conversations contain patient data - admin only
 router.use(authenticateToken, authorizeRole('admin'));
