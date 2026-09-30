@@ -159,7 +159,7 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
       <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl bg-white p-4 shadow-inner space-y-3">
 
         {messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={message.role === "user" ? "ml-auto max-w-[80%]" : "max-w-full"}>
+          <div key={`${message.role}-${index}`} className={message.role === "user" ? "ml-auto flex max-w-[80%] justify-end" : "max-w-full"}>
             {!message.bookingConfirmed ? <div className={`w-fit max-w-full rounded-lg px-4 py-2 text-sm ${
               message.role === "ai" ? "bg-teal-100 text-slate-800" : "bg-teal-600 text-white"
             }`}>
