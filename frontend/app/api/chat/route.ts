@@ -49,6 +49,12 @@ type PublicDoctor = {
   yearsOfExperience?: number | null;
 };
 
+type SymptomCardData = {
+  summary: string;
+  recommendation?: string;
+  recommendedDoctor?: ChatDoctor;
+};
+
 type BookingDraft = {
   step: "none" | "doctor" | "datetime" | "patient";
   doctorId?: number | string;
@@ -283,6 +289,64 @@ export async function POST(request: Request) {
     }
   };
 
+  const buildSymptomCard = async (
+    reply: string,
+    doctors?: ChatDoctor[],
+    explicitDoctor?: ChatDoctor
+  ): Promise<SymptomCardData | undefined> => {
+    if (!/(?:based on your symptoms|this symptom|symptoms you described)/i.test(reply)) {
+      return undefined;
+    }
+
+    const doctorMatch = reply.match(/found\s+(?:\d+|one|a|an)?\s*(.+?)\s+specialists?\b/i);
+    const requestedSpecialty = doctorMatch?.[1]
+      .replace(/\s*\([^)]*\)/g, "")
+      .trim()
+      .toLowerCase();
+    const matchesSpecialty = (doctor: ChatDoctor) => {
+      const specialization = doctor.specialization?.toLowerCase() ?? "";
+      return Boolean(requestedSpecialty && (
+        specialization.includes(requestedSpecialty) ||
+        requestedSpecialty.includes(specialization) ||
+        (requestedSpecialty === "gp" && specialization.includes("general practitioner"))
+      ));
+    };
+
+    let recommendedDoctor = explicitDoctor ?? doctors?.find(matchesSpecialty) ??
+      (doctors?.length === 1 ? doctors[0] : undefined);
+
+    if (!recommendedDoctor && requestedSpecialty) {
+      try {
+        const doctorResponse = await fetch(`${backendBaseUrl}/api/doctors/public`, { cache: "no-store" });
+        if (doctorResponse.ok) {
+          const availableDoctors = (await doctorResponse.json()) as PublicDoctor[];
+          const match = availableDoctors.find((doctor) => matchesSpecialty({
+            ...doctor,
+            name: doctor.name ?? "Doctor"
+          }));
+          if (match) {
+            recommendedDoctor = { ...match, name: match.name ?? "Doctor" };
+          }
+        }
+      } catch (error) {
+        console.error("Could not load the recommended doctor for symptom guidance:", error);
+      }
+    }
+
+    const doctorSectionIndex = reply.search(/based on your symptoms/i);
+    const assessment = (doctorSectionIndex >= 0 ? reply.slice(0, doctorSectionIndex) : reply).trim();
+    const recommendation = assessment.match(/(?:we recommend|you should|consider)[^.?!]*[.?!]?/i)?.[0];
+    const summary = recommendation
+      ? assessment.replace(recommendation, "").trim()
+      : assessment;
+
+    return {
+      summary: summary || "Here is guidance based on the symptoms you described.",
+      recommendation,
+      recommendedDoctor
+    };
+  };
+
   const n8nWebhookUrl = process.env.N8N_CHAT_WEBHOOK_URL;
 
   if (n8nWebhookUrl && lastMessage?.role === "user") {
@@ -354,6 +418,7 @@ export async function POST(request: Request) {
         reply?: string;
         message?: string;
         doctors?: ChatDoctor[];
+        recommendedDoctor?: ChatDoctor;
         bookingStep?: BookingStep;
         intent?: string;
         bookingConfirmed?: boolean;
@@ -373,6 +438,7 @@ export async function POST(request: Request) {
         reply?: string;
         message?: string;
         doctors?: ChatDoctor[];
+        recommendedDoctor?: ChatDoctor;
         bookingStep?: BookingStep;
         intent?: string;
         bookingConfirmed?: boolean;
@@ -439,9 +505,11 @@ export async function POST(request: Request) {
       }
 
       const historySaved = await logMessages(reply);
+      const symptomCard = await buildSymptomCard(reply, doctors, data.recommendedDoctor);
       return NextResponse.json({
         reply,
         historySaved,
+        symptomCard,
         doctors,
         bookingStep,
         timeSlots,
@@ -467,7 +535,8 @@ export async function POST(request: Request) {
     doctors?: ChatDoctor[];
   }) => {
     const historySaved = await logMessages(payload.reply);
-    return NextResponse.json({ ...payload, historySaved });
+    const symptomCard = await buildSymptomCard(payload.reply, payload.doctors);
+    return NextResponse.json({ ...payload, historySaved, symptomCard });
   };
   if (lastMessage?.role === "user" && isDoctorAvailabilityQuery(lastMessage.content)) {
     try {
