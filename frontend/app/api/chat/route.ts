@@ -38,6 +38,7 @@ type ChatRequest = {
   appointmentTime?: string;
   displayDate?: string;
   dayName?: string;
+  documentType?: "MEDICAL_REPORT" | "PRESCRIPTION";
 };
 
 type PublicDoctor = {
@@ -219,7 +220,8 @@ export async function POST(request: Request) {
         appointmentDate: String(formData.get("appointmentDate") ?? ""),
         appointmentTime: String(formData.get("appointmentTime") ?? ""),
         displayDate: String(formData.get("displayDate") ?? ""),
-        dayName: String(formData.get("dayName") ?? "")
+        dayName: String(formData.get("dayName") ?? ""),
+        documentType: String(formData.get("documentType") ?? "") as ChatRequest["documentType"]
       };
     } catch {
       return NextResponse.json({ error: "Invalid messages payload" }, { status: 400 });
@@ -249,7 +251,8 @@ export async function POST(request: Request) {
     appointmentDate,
     appointmentTime,
     displayDate,
-    dayName
+    dayName,
+    documentType: requestedDocumentType
   } = payload;
 
   if (!messages || messages.length === 0) {
@@ -349,6 +352,13 @@ export async function POST(request: Request) {
 
   const n8nWebhookUrl = process.env.N8N_CHAT_WEBHOOK_URL;
 
+  if (image && !n8nWebhookUrl) {
+    return NextResponse.json(
+      { error: "Prescription image processing is not configured. Please contact the clinic." },
+      { status: 503 }
+    );
+  }
+
   if (n8nWebhookUrl && lastMessage?.role === "user") {
     try {
       const webhookBody = image ? new FormData() : null;
@@ -369,13 +379,23 @@ export async function POST(request: Request) {
         sessionId: sessionId ?? "anonymous",
         firstName,
         email,
-        action: bookingAction === "check_time_slots"
+        action: image
+          ? requestedDocumentType === "MEDICAL_REPORT"
+            ? "analyze_medical_report"
+            : "analyze_prescription"
+          : bookingAction === "check_time_slots"
           ? "select_date"
           : bookingAction === "select_time_slot"
             ? "confirm_booking"
             : bookingAction === "start_booking"
               ? "select_doctor"
               : undefined,
+        intent: image
+          ? requestedDocumentType === "MEDICAL_REPORT"
+            ? "medical_report"
+            : "prescription"
+          : undefined,
+        documentType: image ? requestedDocumentType ?? "PRESCRIPTION" : undefined,
         bookingAction,
         selectedDoctor: selectedDoctorRecord,
         weeklySchedule: selectedDoctorRecord?.weeklySchedule,
@@ -419,10 +439,15 @@ export async function POST(request: Request) {
         message?: string;
         doctors?: ChatDoctor[];
         recommendedDoctor?: ChatDoctor;
+        documentType?: string;
+        success?: boolean;
+        error?: boolean | string;
+        data?: Record<string, unknown>;
+        card?: Record<string, unknown>;
+        timestamp?: string;
         bookingStep?: BookingStep;
         intent?: string;
         bookingConfirmed?: boolean;
-        success?: boolean;
         appointmentId?: string | number;
         id?: string | number;
         doctorName?: string;
@@ -439,10 +464,15 @@ export async function POST(request: Request) {
         message?: string;
         doctors?: ChatDoctor[];
         recommendedDoctor?: ChatDoctor;
+        documentType?: string;
+        success?: boolean;
+        error?: boolean | string;
+        data?: Record<string, unknown>;
+        card?: Record<string, unknown>;
+        timestamp?: string;
         bookingStep?: BookingStep;
         intent?: string;
         bookingConfirmed?: boolean;
-        success?: boolean;
         appointmentId?: string | number;
         id?: string | number;
         doctorName?: string;
@@ -452,6 +482,20 @@ export async function POST(request: Request) {
         availableTimeSlots?: WebhookTimeSlot[] | string;
       }>;
       const data = Array.isArray(responseData) ? responseData[0] : responseData;
+      const documentDetails = data.data ?? {};
+      const documentType = data.documentType ?? String(documentDetails.documentType ?? "");
+      const hasDocumentDetails = Boolean(documentType) && Boolean(data.card || Object.keys(documentDetails).length);
+      const documentResult = image && hasDocumentDetails
+        ? {
+            documentType,
+            success: data.success !== false && data.error !== true,
+            error: data.error,
+            message: data.message,
+            timestamp: data.timestamp,
+            card: data.card ?? (Object.keys(documentDetails).length ? documentDetails : undefined),
+            data: Object.keys(documentDetails).length ? documentDetails : undefined
+          }
+        : undefined;
       const doctors = Array.isArray(data.doctors) ? data.doctors : undefined;
       const rawTimeSlots = Array.isArray(data.timeSlots)
         ? data.timeSlots
@@ -496,6 +540,9 @@ export async function POST(request: Request) {
 
       reply ??=
         (doctors?.length ? "Here are the doctors currently available:" : undefined) ??
+        (documentResult
+          ? `Your ${documentType.replaceAll("_", " ").toLowerCase()} analysis is ready.`
+          : undefined) ??
         (bookingConfirmed
           ? `Your appointment with ${data.doctorName ?? (typeof selectedDoctorRecord?.doctorName === "string" ? selectedDoctorRecord.doctorName : "the selected doctor")} is confirmed for ${data.selectedDate ?? appointmentDate ?? "the selected date"} at ${data.selectedTime ?? appointmentTime ?? "the selected time"}.`
           : undefined);
@@ -510,6 +557,7 @@ export async function POST(request: Request) {
         reply,
         historySaved,
         symptomCard,
+        documentResult,
         doctors,
         bookingStep,
         timeSlots,
@@ -519,7 +567,11 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error("n8n chat webhook failed:", error);
       return NextResponse.json(
-        { reply: "I could not reach the assistant right now. Please try again shortly." },
+        {
+          error: image
+            ? "Could not process the prescription image. Please try again shortly."
+            : "I could not reach the assistant right now. Please try again shortly."
+        },
         { status: 502 }
       );
     }

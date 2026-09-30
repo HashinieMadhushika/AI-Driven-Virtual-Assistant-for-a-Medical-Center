@@ -33,6 +33,7 @@ import AppointmentStepPicker from "./AppointmentStepPicker";
 import AppointmentConfirmationCard from "./AppointmentConfirmationCard";
 import BookingConfirmationMessage from "./BookingConfirmationMessage";
 import SymptomAnalysisCard, { type SymptomCardData } from "./SymptomAnalysisCard";
+import DocumentResultCard, { type DocumentResultData } from "./DocumentResultCard";
 
 type BookingStep = "date" | "time" | "patient" | "none";
 type BookingAction = "start_booking" | "check_time_slots" | "select_time_slot";
@@ -57,6 +58,7 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
     appointmentId?: string | number;
     historySaved?: boolean;
     symptomCard?: SymptomCardData;
+    documentResult?: DocumentResultData;
   }[]>([
     { role: "ai", text: `How can I assist you with ${feature}?` }
   ]);
@@ -107,6 +109,7 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
         body: formData
       });
       const data = (await response.json()) as {
+        error?: string;
         reply?: string;
         doctors?: Doctor[];
         bookingStep?: BookingStep;
@@ -115,8 +118,9 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
         appointmentId?: string | number;
         historySaved?: boolean;
         symptomCard?: SymptomCardData;
+        documentResult?: DocumentResultData;
       };
-      if (!response.ok || !data.reply) throw new Error("Chat request failed");
+      if (!response.ok || !data.reply) throw new Error(data.error ?? "Chat request failed");
       const startsDoctorBooking = booking?.action === "start_booking";
       setMessages((current) => [...current, {
         role: "ai",
@@ -129,12 +133,16 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
         bookingConfirmed: data.bookingConfirmed,
         appointmentId: data.appointmentId,
         historySaved: data.historySaved,
-        symptomCard: data.symptomCard
+        symptomCard: data.symptomCard,
+        documentResult: data.documentResult
       }]);
-    } catch {
+    } catch (error) {
       setMessages((current) => [
         ...current,
-        { role: "ai", text: "I could not connect right now. Please try again." }
+        {
+          role: "ai",
+          text: error instanceof Error ? error.message : "I could not connect right now. Please try again."
+        }
       ]);
     } finally {
       setIsSending(false);
@@ -179,7 +187,8 @@ export default function ChatScreen({ feature, onBack, visitor }: Props) {
                 }}
               />
             ) : null}
-            {!message.bookingConfirmed && !message.symptomCard ? <div className={`w-fit max-w-full rounded-lg px-4 py-2 text-sm ${
+            {message.role === "ai" && message.documentResult ? <DocumentResultCard result={message.documentResult} /> : null}
+            {!message.bookingConfirmed && !message.symptomCard && !message.documentResult ? <div className={`w-fit max-w-full rounded-lg px-4 py-2 text-sm ${
               message.role === "ai" ? "bg-teal-100 text-slate-800" : "bg-teal-600 text-white"
             }`}>
               {message.role === "ai" ? `AI: ${message.text}` : (
