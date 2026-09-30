@@ -3,6 +3,7 @@ import multer from 'multer';
 import {
   addDoctor,
   getDoctors,
+  getPublicDoctors,
   updateDoctor,
   deleteDoctor,
   doctorLogin,
@@ -13,7 +14,7 @@ import {
   deleteDoctorImage,
   uploadOwnProfileImage,
   acceptDoctorInvite
-} from '../controllers/doctorcontroller.js';
+} from '../controllers/doctorController.js';
 import { authenticateToken, authorizeRole } from '../middleware/authMiddleware.js';
 
 // Configure multer for file uploads
@@ -36,6 +37,7 @@ const router = express.Router();
 // Public routes
 router.post('/login', doctorLogin);
 router.post('/accept-invite', acceptDoctorInvite);
+router.get('/public', getPublicDoctors);
 
 // Protected doctor routes
 router.get('/profile', authenticateToken, authorizeRole('doctor'), getDoctorProfile);

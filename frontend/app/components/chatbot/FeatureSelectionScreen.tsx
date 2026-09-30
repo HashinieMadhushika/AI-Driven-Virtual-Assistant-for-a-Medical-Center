@@ -33,6 +33,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
       appointmentPreview?: { doctor: Doctor; date: string; time: string };
       bookingConfirmed?: boolean;
       appointmentId?: string | number;
+      bookingPrompt?: "pending" | "accepted" | "declined";
     }[]
   >([
     { role: "ai", text: "Hi! You can ask me anything, or choose one option above." },
@@ -41,14 +42,15 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
   const handleSend = async (
     text: string,
     image?: File,
-    booking?: { action: BookingAction; doctor: Doctor; date?: string; time?: string }
+    booking?: { action: BookingAction; doctor: Doctor; date?: string; time?: string },
+    messageHistory: typeof messages = messages
   ) => {
     const t = text.trim();
     if ((!t && !image) || isSending) return;
     const messageText = t || "Please analyze the attached image.";
 
     const nextMessages = [
-      ...messages,
+      ...messageHistory,
       { role: "user" as const, text: messageText, imageName: image?.name }
     ];
     setMessages(nextMessages);
@@ -123,13 +125,16 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
           title="Book Appointment"
           description="Schedule visit with specialist"
           icon={<CalendarCheck className="w-5 h-5" />}
-          onClick={() => onSelect("Book Appointment")}
+          onClick={() => setMessages((current) => [
+            ...current,
+            { role: "ai", text: "Do you want to book an appointment?", bookingPrompt: "pending" }
+          ])}
         />
         <FeatureCard
           title="Find Doctor"
           description="Search by specialization"
           icon={<Stethoscope className="w-5 h-5" />}
-          onClick={() => onSelect("Find Doctor")}
+          onClick={() => void handleSend("Who are the available doctors?")}
         />
         <FeatureCard
           title="Check Report"
@@ -142,7 +147,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
       {/* Chat terminal area */}
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-inner space-y-3">
         {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "ml-auto max-w-[80%]" : "max-w-full"}>
+          <div key={i} className={m.role === "user" ? "ml-auto flex max-w-[80%] justify-end" : "max-w-full"}>
             {!m.bookingConfirmed ? <div className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
               m.role === "ai" ? "bg-teal-100 text-slate-800" : "bg-teal-600 text-white"
             }`}>
@@ -153,6 +158,40 @@ export default function FeatureSelectionScreen({ onSelect, visitor }: Props) {
                 </>
               )}
             </div> : null}
+            {m.bookingPrompt === "pending" ? (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  disabled={isSending}
+                  onClick={() => {
+                    const answeredMessages = messages.map((message, index) =>
+                      index === i ? { ...message, bookingPrompt: "accepted" as const } : message
+                    );
+                    setMessages(answeredMessages);
+                    void handleSend("Who are the available doctors?", undefined, undefined, answeredMessages);
+                  }}
+                  className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  disabled={isSending}
+                  onClick={() => {
+                    const answeredMessages = messages.map((message, index) =>
+                      index === i ? { ...message, bookingPrompt: "declined" as const } : message
+                    );
+                    setMessages([
+                      ...answeredMessages,
+                      { role: "ai", text: "No problem. Let me know if you need anything else." }
+                    ]);
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  No
+                </button>
+              </div>
+            ) : null}
             {m.role === "ai" && m.bookingConfirmed ? (
               <BookingConfirmationMessage message={m.text} appointmentId={m.appointmentId} />
             ) : null}

@@ -45,6 +45,7 @@ type PublicDoctor = {
   name?: string | null;
   specialization?: string | null;
   designation?: string | null;
+  profileImageUrl?: string | null;
   yearsOfExperience?: number | null;
 };
 
@@ -456,7 +457,11 @@ export async function POST(request: Request) {
   const rescheduleDraft: RescheduleDraft = context?.rescheduleDraft ?? { step: "none" };
   const cancelDraft: CancelDraft = context?.cancelDraft ?? { step: "none" };
 
-  const respondWithLog = async (payload: { reply: string; nextContext?: ChatContext }) => {
+  const respondWithLog = async (payload: {
+    reply: string;
+    nextContext?: ChatContext;
+    doctors?: ChatDoctor[];
+  }) => {
     await logMessages(payload.reply);
     return NextResponse.json(payload);
   };
@@ -469,8 +474,11 @@ export async function POST(request: Request) {
           { status: 200 }
         );
       }
-      const doctors = (await response.json()) as PublicDoctor[];
-      return respondWithLog({ reply: formatDoctorList(doctors) });
+      const doctors = ((await response.json()) as PublicDoctor[]).map((doctor) => ({
+        ...doctor,
+        name: doctor.name ?? "Doctor"
+      }));
+      return respondWithLog({ reply: formatDoctorList(doctors), doctors });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       return NextResponse.json(

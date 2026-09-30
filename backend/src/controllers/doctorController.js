@@ -204,6 +204,32 @@ export const getDoctors = async (req, res) => {
   }
 };
 
+// Public doctor directory for chatbot discovery and appointment booking
+export const getPublicDoctors = async (_req, res) => {
+  try {
+    const doctors = await Doctor.findAll({
+      attributes: [
+        'id',
+        'name',
+        'specialization',
+        'designation',
+        'yearsOfExperience',
+        'profileImageUrl',
+        'availableTimes'
+      ],
+      order: [['name', 'ASC']]
+    });
+
+    return res.json(doctors.map((doctor) => ({
+      ...doctor.toJSON(),
+      weeklySchedule: doctor.availableTimes
+    })));
+  } catch (error) {
+    console.error('Get public doctors error:', error);
+    return res.status(500).json({ message: 'Error fetching doctors' });
+  }
+};
+
 // Update doctor by id (admin)
 export const updateDoctor = async (req, res) => {
   try {
