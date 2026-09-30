@@ -86,10 +86,6 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
             <FeatureSelectionScreen
               visitor={visitor}
               previousChat={previousChat}
-              onSelect={(feature) => {
-                setSelectedFeature(feature);
-                setScreen("chat");
-              }}
             />
           )}
 

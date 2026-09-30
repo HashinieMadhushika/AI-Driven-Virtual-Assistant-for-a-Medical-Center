@@ -3,16 +3,18 @@
 import FeatureCard from "./FeatureCard";
 import ChatInput from "./ChatInput";
 import { useState } from "react";
-import { CalendarCheck, Stethoscope, FileText } from "lucide-react";
+import { CalendarCheck, Stethoscope, FileText, Pill } from "lucide-react";
 import DoctorCards, { type Doctor } from "./DoctorCards";
 import AppointmentStepPicker from "./AppointmentStepPicker";
 import AppointmentConfirmationCard from "./AppointmentConfirmationCard";
 import BookingConfirmationMessage from "./BookingConfirmationMessage";
 import SymptomAnalysisCard, { type SymptomCardData } from "./SymptomAnalysisCard";
+import DocumentResultCard, { type DocumentResultData } from "./DocumentResultCard";
 import type { PreviousChat } from "./UserInfoScreen";
 
 type BookingStep = "date" | "time" | "patient" | "none";
 type BookingAction = "start_booking" | "check_time_slots" | "select_time_slot";
+type DocumentType = "MEDICAL_REPORT" | "PRESCRIPTION";
 type ChatMessage = {
   role: "ai" | "user";
   text: string;
@@ -26,19 +28,21 @@ type ChatMessage = {
   bookingPrompt?: "pending" | "accepted" | "declined";
   historySaved?: boolean;
   symptomCard?: SymptomCardData;
+  documentResult?: DocumentResultData;
+  documentChoice?: "pending" | DocumentType;
 };
 
 interface Props {
-  onSelect: (feature: string) => void;
   visitor: { firstName: string; email: string };
   previousChat: PreviousChat | null;
 }
 
-export default function FeatureSelectionScreen({ onSelect, visitor, previousChat }: Props) {
+export default function FeatureSelectionScreen({ visitor, previousChat }: Props) {
   const [sessionId] = useState(() => previousChat?.sessionId ?? crypto.randomUUID());
   const [isSending, setIsSending] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (previousChat?.messages.length) {
       return previousChat.messages.map((message) => ({
@@ -83,6 +87,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
         }
         if (booking.time) formData.set("appointmentTime", booking.time);
       }
+      if (image) formData.set("documentType", selectedDocumentType ?? "PRESCRIPTION");
       formData.set("messages", JSON.stringify(nextMessages.map((message) => ({
         role: message.role === "ai" ? "assistant" : "user",
         content: message.text
@@ -94,6 +99,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
         body: formData
       });
       const data = (await response.json()) as {
+        error?: string;
         reply?: string;
         doctors?: Doctor[];
         bookingStep?: BookingStep;
@@ -102,8 +108,9 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
         appointmentId?: string | number;
         historySaved?: boolean;
         symptomCard?: SymptomCardData;
+        documentResult?: DocumentResultData;
       };
-      if (!response.ok || !data.reply) throw new Error("Chat request failed");
+      if (!response.ok || !data.reply) throw new Error(data.error ?? "Chat request failed");
       const startsDoctorBooking = booking?.action === "start_booking";
       setMessages((prev) => [...prev, {
         role: "ai",
@@ -116,12 +123,16 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
         bookingConfirmed: data.bookingConfirmed,
         appointmentId: data.appointmentId,
         historySaved: data.historySaved,
-        symptomCard: data.symptomCard
+        symptomCard: data.symptomCard,
+        documentResult: data.documentResult
       }]);
-    } catch {
+    } catch (error) {
       setMessages((prev) => [
         ...prev,
-        { role: "ai", text: "I could not connect right now. Please try again." }
+        {
+          role: "ai",
+          text: error instanceof Error ? error.message : "I could not connect right now. Please try again."
+        }
       ]);
     } finally {
       setIsSending(false);
@@ -156,7 +167,10 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
           title="Check Report"
           description="Access medical reports"
           icon={<FileText className="w-5 h-5" />}
-          onClick={() => onSelect("Check Report")}
+          onClick={() => setMessages((current) => [
+            ...current,
+            { role: "ai", text: "What type of document would you like to check?", documentChoice: "pending" }
+          ])}
         />
       </div>
 
@@ -176,7 +190,8 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
                 }}
               />
             ) : null}
-            {!m.bookingConfirmed && !m.symptomCard ? <div className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
+            {m.role === "ai" && m.documentResult ? <DocumentResultCard result={m.documentResult} /> : null}
+            {!m.bookingConfirmed && !m.symptomCard && !m.documentResult ? <div className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
               m.role === "ai" ? "bg-teal-100 text-slate-800" : "bg-teal-600 text-white"
             }`}>
               {m.role === "ai" ? `AI: ${m.text}` : (
@@ -186,6 +201,42 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
                 </>
               )}
             </div> : null}
+            {m.documentChoice === "pending" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDocumentType("MEDICAL_REPORT");
+                    setMessages((current) => [
+                      ...current.map((message, index) => index === i
+                        ? { ...message, documentChoice: "MEDICAL_REPORT" as const }
+                        : message),
+                      { role: "ai", text: "Medical report selected. Attach an image of the report; you can add a question too." }
+                    ]);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+                >
+                  <FileText className="h-4 w-4" />
+                  Medical report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDocumentType("PRESCRIPTION");
+                    setMessages((current) => [
+                      ...current.map((message, index) => index === i
+                        ? { ...message, documentChoice: "PRESCRIPTION" as const }
+                        : message),
+                      { role: "ai", text: "Prescription selected. Attach an image of the prescription; you can add a question too." }
+                    ]);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3.5 py-2 text-sm font-medium text-teal-800 transition hover:bg-teal-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+                >
+                  <Pill className="h-4 w-4" />
+                  Prescription
+                </button>
+              </div>
+            ) : null}
             {m.role === "ai" && m.historySaved === false ? (
               <p className="mt-1 text-xs text-amber-700" role="status">
                 This chat could not be saved. Your previous conversation may not be available next time.
