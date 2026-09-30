@@ -8,6 +8,7 @@ import DoctorCards, { type Doctor } from "./DoctorCards";
 import AppointmentStepPicker from "./AppointmentStepPicker";
 import AppointmentConfirmationCard from "./AppointmentConfirmationCard";
 import BookingConfirmationMessage from "./BookingConfirmationMessage";
+import SymptomAnalysisCard, { type SymptomCardData } from "./SymptomAnalysisCard";
 import type { PreviousChat } from "./UserInfoScreen";
 
 type BookingStep = "date" | "time" | "patient" | "none";
@@ -24,6 +25,7 @@ type ChatMessage = {
   appointmentId?: string | number;
   bookingPrompt?: "pending" | "accepted" | "declined";
   historySaved?: boolean;
+  symptomCard?: SymptomCardData;
 };
 
 interface Props {
@@ -99,6 +101,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
         bookingConfirmed?: boolean;
         appointmentId?: string | number;
         historySaved?: boolean;
+        symptomCard?: SymptomCardData;
       };
       if (!response.ok || !data.reply) throw new Error("Chat request failed");
       const startsDoctorBooking = booking?.action === "start_booking";
@@ -112,7 +115,8 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
         timeSlots: data.timeSlots,
         bookingConfirmed: data.bookingConfirmed,
         appointmentId: data.appointmentId,
-        historySaved: data.historySaved
+        historySaved: data.historySaved,
+        symptomCard: data.symptomCard
       }]);
     } catch {
       setMessages((prev) => [
@@ -160,7 +164,19 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-inner space-y-3">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "ml-auto flex max-w-[80%] justify-end" : "max-w-full"}>
-            {!m.bookingConfirmed ? <div className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
+            {m.role === "ai" && m.symptomCard ? (
+              <SymptomAnalysisCard
+                analysis={m.symptomCard}
+                onBook={(doctor) => {
+                  setSelectedDoctor(doctor);
+                  void handleSend(`I would like to book an appointment with ${doctor.name}.`, undefined, {
+                    action: "start_booking",
+                    doctor
+                  });
+                }}
+              />
+            ) : null}
+            {!m.bookingConfirmed && !m.symptomCard ? <div className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
               m.role === "ai" ? "bg-teal-100 text-slate-800" : "bg-teal-600 text-white"
             }`}>
               {m.role === "ai" ? `AI: ${m.text}` : (
@@ -212,7 +228,7 @@ export default function FeatureSelectionScreen({ onSelect, visitor, previousChat
             {m.role === "ai" && m.bookingConfirmed ? (
               <BookingConfirmationMessage message={m.text} appointmentId={m.appointmentId} />
             ) : null}
-            {m.role === "ai" && m.doctors ? (
+            {m.role === "ai" && m.doctors && !m.symptomCard ? (
               <DoctorCards
                 doctors={m.doctors}
                 onBook={(doctor) => {
