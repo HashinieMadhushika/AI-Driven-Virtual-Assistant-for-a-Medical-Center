@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { FaTimes } from "react-icons/fa";
 
 import WelcomeScreen from "./WelcomeScreen";
-import UserInfoScreen from "./UserInfoScreen";
+import UserInfoScreen, { type PreviousChat } from "./UserInfoScreen";
 import FeatureSelectionScreen from "./FeatureSelectionScreen";
 import ChatScreen from "./ChatScreen";
 
@@ -24,6 +24,7 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [selectedFeature, setSelectedFeature] = useState("");
   const [visitor, setVisitor] = useState<Visitor>({ firstName: "", email: "" });
+  const [previousChat, setPreviousChat] = useState<PreviousChat | null>(null);
 
   if (!open) return null;
 
@@ -31,6 +32,7 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
     setOpen(false);
     setScreen("welcome");
     setSelectedFeature("");
+    setPreviousChat(null);
   };
 
   return (
@@ -72,8 +74,9 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
 
           {screen === "userinfo" && (
             <UserInfoScreen
-              onNext={(details) => {
+              onNext={(details, history) => {
                 setVisitor(details);
+                setPreviousChat(history);
                 setScreen("features");
               }}
             />
@@ -82,6 +85,7 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
           {screen === "features" && (
             <FeatureSelectionScreen
               visitor={visitor}
+              previousChat={previousChat}
               onSelect={(feature) => {
                 setSelectedFeature(feature);
                 setScreen("chat");

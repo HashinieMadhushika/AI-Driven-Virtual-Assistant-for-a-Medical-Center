@@ -22,6 +22,7 @@ import Patient from './src/models/Patient.js';
 import Appointment from './src/models/Appointment.js';
 import ChatSession from './src/models/ChatSession.js';
 import ChatMessage from './src/models/ChatMessage.js';
+import ChatAccessCode from './src/models/ChatAccessCode.js';
 
 // Define model relationships
 Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });

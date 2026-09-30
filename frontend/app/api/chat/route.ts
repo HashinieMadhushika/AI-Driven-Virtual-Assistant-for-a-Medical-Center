@@ -254,7 +254,7 @@ export async function POST(request: Request) {
   const backendBaseUrl = process.env.BACKEND_BASE_URL ?? "http://localhost:5000";
   const logMessages = async (replyText: string) => {
     if (!sessionId || !lastMessage || !firstName || !email) {
-      return;
+      return false;
     }
 
     try {
@@ -274,9 +274,12 @@ export async function POST(request: Request) {
 
       if (!historyResponse.ok) {
         console.error("Chat history log failed:", await historyResponse.text());
+        return false;
       }
+      return true;
     } catch (error) {
       console.error("Chat history log failed:", error);
+      return false;
     }
   };
 
@@ -435,9 +438,10 @@ export async function POST(request: Request) {
         throw new Error("Webhook response did not contain output text");
       }
 
-      await logMessages(reply);
+      const historySaved = await logMessages(reply);
       return NextResponse.json({
         reply,
+        historySaved,
         doctors,
         bookingStep,
         timeSlots,
@@ -462,8 +466,8 @@ export async function POST(request: Request) {
     nextContext?: ChatContext;
     doctors?: ChatDoctor[];
   }) => {
-    await logMessages(payload.reply);
-    return NextResponse.json(payload);
+    const historySaved = await logMessages(payload.reply);
+    return NextResponse.json({ ...payload, historySaved });
   };
   if (lastMessage?.role === "user" && isDoctorAvailabilityQuery(lastMessage.content)) {
     try {
