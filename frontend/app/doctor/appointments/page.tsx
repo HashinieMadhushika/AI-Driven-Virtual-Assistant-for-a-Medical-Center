@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
+
 export default function DoctorAppointments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -17,7 +19,7 @@ export default function DoctorAppointments() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      let url = 'http://localhost:5000/api/appointments';
+      let url = `${API}/api/appointments`;
       
       if (statusFilter) {
         url += `?status=${statusFilter}`;
@@ -43,7 +45,7 @@ export default function DoctorAppointments() {
   const updateAppointmentStatus = async (id: number, status: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/appointments/${id}`, {
+      const response = await fetch(`${API}/api/appointments/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -65,7 +67,7 @@ export default function DoctorAppointments() {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/appointments/${id}`, {
+      const response = await fetch(`${API}/api/appointments/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
