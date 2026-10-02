@@ -114,7 +114,7 @@ export default function UserInfoScreen({ onNext }: Props) {
             <User className="w-7 h-7 text-white" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-            {verificationSent ? "Verify your email" : "Let&apos;s get to know you"}
+            {verificationSent ? "Verify your email" : "Let's get to know you"}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             {verificationSent

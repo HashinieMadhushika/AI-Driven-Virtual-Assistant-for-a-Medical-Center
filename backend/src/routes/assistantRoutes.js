@@ -1,0 +1,14 @@
+import express from "express";
+
+import {
+  chatWithAssistant,
+  assistantHealth,
+} from "../controllers/assistantController.js";
+
+const router = express.Router();
+
+router.get("/health", assistantHealth);
+
+router.post("/chat", chatWithAssistant);
+
+export default router;
