@@ -35,6 +35,11 @@ export async function chatWithAssistant(
       dayName = "",
       selectedTime = "",
 
+      appointmentId = "",
+      cancellationReason = "",
+      newAppointmentDate = "",
+      newAppointmentTime = "",
+
       audioBase64 = "",
       mimeType = "",
 
@@ -97,6 +102,11 @@ export async function chatWithAssistant(
           displayDate,
           dayName,
           selectedTime,
+
+          appointmentId,
+          cancellationReason,
+          newAppointmentDate,
+          newAppointmentTime,
 
           audioBase64,
           mimeType,

@@ -10,6 +10,10 @@ export async function callN8nAssistant({
   displayDate = "",
   dayName = "",
   selectedTime = "",
+  appointmentId = "",
+  cancellationReason = "",
+  newAppointmentDate = "",
+  newAppointmentTime = "",
   audioBase64 = "",
   mimeType = "",
   requestVoiceReply = false,
@@ -86,6 +90,18 @@ export async function callN8nAssistant({
     selectedTime:
       selectedTime || "",
 
+    appointmentId:
+      appointmentId || "",
+
+    cancellationReason:
+      cancellationReason || "",
+
+    newAppointmentDate:
+      newAppointmentDate || "",
+
+    newAppointmentTime:
+      newAppointmentTime || "",
+
     audioBase64:
       hasAudio
         ? audioBase64
@@ -112,6 +128,8 @@ export async function callN8nAssistant({
         email,
         action:
           payload.action,
+        appointmentId:
+          payload.appointmentId,
         hasText,
         hasAudio,
         mimeType:

@@ -7,72 +7,83 @@ import {
   listUpcomingEvents,
   updateCalendarEvent,
   deleteCalendarEvent,
-  refreshAccessToken
+  refreshAccessToken,
 } from '../services/googleCalendar.js';
+
+function googleCalendarConfigured() {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID &&
+      process.env.GOOGLE_CLIENT_SECRET &&
+      process.env.GOOGLE_REDIRECT_URI
+  );
+}
 
 // Initiate Google Calendar OAuth
 export const initiateGoogleAuth = async (req, res) => {
   try {
+    if (!googleCalendarConfigured()) {
+      return res.status(500).json({
+        message: 'Google Calendar is not configured on the server. Please contact your administrator.',
+      });
+    }
+
     const authUrl = getAuthUrl();
-    res.json({ authUrl });
+    return res.json({ authUrl });
   } catch (error) {
     console.error('Error initiating Google auth:', error);
-    res.status(500).json({ message: 'Error initiating Google authentication' });
+    return res.status(500).json({ message: 'Error initiating Google authentication' });
   }
 };
 
 // Handle OAuth callback
 export const handleOAuthCallback = async (req, res) => {
   try {
-    const { code } = req.query;
-    const doctorId = req.query.state; // Pass doctor ID as state parameter
+    const { code, state: doctorId } = req.query;
 
-    if (!code) {
-      return res.status(400).json({ message: 'Authorization code not provided' });
+    if (!code || !doctorId) {
+      return res.status(400).json({ message: 'Authorization code and doctor state are required' });
     }
 
-    // Exchange code for tokens
+    const doctor = await Doctor.findByPk(doctorId);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
     const tokens = await getTokensFromCode(code);
 
-    // Save tokens to doctor's record
-    await Doctor.update({
-      googleCalendarAccessToken: tokens.access_token,
-      googleCalendarRefreshToken: tokens.refresh_token,
-      googleCalendarTokenExpiry: new Date(tokens.expiry_date),
-      googleCalendarConnected: true
-    }, {
-      where: { id: doctorId }
+    await doctor.update({
+      googleCalendarAccessToken: tokens.access_token || doctor.googleCalendarAccessToken,
+      googleCalendarRefreshToken: tokens.refresh_token || doctor.googleCalendarRefreshToken,
+      googleCalendarTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : doctor.googleCalendarTokenExpiry,
+      googleCalendarConnected: true,
     });
 
-    // Redirect to frontend success page
-    res.redirect('http://localhost:3000/doctor/profile?calendar=connected');
+    return res.redirect('http://localhost:3000/doctor/profile?calendar=connected');
   } catch (error) {
     console.error('Error handling OAuth callback:', error);
-    res.redirect('http://localhost:3000/doctor/profile?calendar=error');
+    return res.redirect('http://localhost:3000/doctor/profile?calendar=error');
   }
 };
 
 // Get authorization URL with doctor ID
 export const getGoogleAuthUrl = async (req, res) => {
   try {
-    // Check if Google Calendar credentials are configured
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
-      return res.status(500).json({ 
+    if (!googleCalendarConfigured()) {
+      return res.status(500).json({
         message: 'Google Calendar is not configured on the server. Please contact your administrator.',
-        error: 'Missing Google Calendar credentials in server configuration'
+        error: 'Missing Google Calendar credentials in server configuration',
       });
     }
 
-    const doctorId = req.user.id; // From auth middleware
+    const doctorId = req.user.id;
     const authUrl = getAuthUrl();
-    
-    // Add doctor ID as state parameter
-    const urlWithState = `${authUrl}&state=${doctorId}`;
-    
-    res.json({ authUrl: urlWithState });
+    const separator = authUrl.includes('?') ? '&' : '?';
+    const urlWithState = `${authUrl}${separator}state=${encodeURIComponent(doctorId)}`;
+
+    return res.json({ authUrl: urlWithState });
   } catch (error) {
     console.error('Error getting auth URL:', error);
-    res.status(500).json({ message: 'Error getting authorization URL', error: error.message });
+    return res.status(500).json({ message: 'Error getting authorization URL', error: error.message });
   }
 };
 
@@ -81,95 +92,84 @@ export const disconnectGoogleCalendar = async (req, res) => {
   try {
     const doctorId = req.user.id;
 
-    await Doctor.update({
-      googleCalendarAccessToken: null,
-      googleCalendarRefreshToken: null,
-      googleCalendarTokenExpiry: null,
-      googleCalendarConnected: false
-    }, {
-      where: { id: doctorId }
-    });
+    await Doctor.update(
+      {
+        googleCalendarAccessToken: null,
+        googleCalendarRefreshToken: null,
+        googleCalendarTokenExpiry: null,
+        googleCalendarConnected: false,
+      },
+      {
+        where: { id: doctorId },
+      }
+    );
 
-    res.json({ message: 'Google Calendar disconnected successfully' });
+    return res.json({ message: 'Google Calendar disconnected successfully' });
   } catch (error) {
     console.error('Error disconnecting Google Calendar:', error);
-    res.status(500).json({ message: 'Error disconnecting Google Calendar' });
+    return res.status(500).json({ message: 'Error disconnecting Google Calendar' });
   }
 };
 
-// Helper function to get valid auth client
-const getAuthClient = async (doctor) => {
-  try {
-    console.log('Getting auth client for doctor:', doctor.id);
-    console.log('Calendar connected:', doctor.googleCalendarConnected);
-    console.log('Has access token:', !!doctor.googleCalendarAccessToken);
-    console.log('Has refresh token:', !!doctor.googleCalendarRefreshToken);
-    console.log('Token expiry:', doctor.googleCalendarTokenExpiry);
-
-    if (!doctor.googleCalendarAccessToken || !doctor.googleCalendarRefreshToken) {
-      throw new Error('Google Calendar tokens not found. Please reconnect your Google Calendar.');
-    }
-
-    let tokens = {
-      access_token: doctor.googleCalendarAccessToken,
-      refresh_token: doctor.googleCalendarRefreshToken,
-      expiry_date: new Date(doctor.googleCalendarTokenExpiry).getTime()
-    };
-
-    console.log('Current token expiry date:', new Date(doctor.googleCalendarTokenExpiry));
-    console.log('Current time:', new Date());
-    console.log('Token expired:', new Date() >= new Date(doctor.googleCalendarTokenExpiry));
-
-    // Check if token is expired
-    if (new Date() >= new Date(doctor.googleCalendarTokenExpiry)) {
-      console.log('Token expired, refreshing...');
-      // Refresh the token
-      const newTokens = await refreshAccessToken(doctor.googleCalendarRefreshToken);
-      
-      console.log('New tokens received, updating database...');
-      // Update database with new tokens
-      await Doctor.update({
-        googleCalendarAccessToken: newTokens.access_token,
-        googleCalendarTokenExpiry: new Date(newTokens.expiry_date)
-      }, {
-        where: { id: doctor.id }
-      });
-
-      tokens = newTokens;
-      console.log('Tokens refreshed successfully');
-    } else {
-      console.log('Token still valid, using existing token');
-    }
-
-    return setCredentials(tokens);
-  } catch (error) {
-    console.error('Error in getAuthClient:', error);
-    throw error;
+// Reusable helper for the later appointment/calendar synchronization phase.
+export const getDoctorCalendarAuth = async (doctor) => {
+  if (!doctor) {
+    throw new Error('Doctor not found');
   }
+
+  if (!doctor.googleCalendarConnected) {
+    throw new Error('Google Calendar not connected');
+  }
+
+  if (!doctor.googleCalendarRefreshToken) {
+    throw new Error('Google Calendar refresh token not found. Please reconnect your Google Calendar.');
+  }
+
+  let accessToken = doctor.googleCalendarAccessToken;
+  let expiryDate = doctor.googleCalendarTokenExpiry
+    ? new Date(doctor.googleCalendarTokenExpiry).getTime()
+    : 0;
+
+  const expired = !accessToken || !expiryDate || Date.now() >= expiryDate - 60_000;
+
+  if (expired) {
+    const newTokens = await refreshAccessToken(doctor.googleCalendarRefreshToken);
+
+    accessToken = newTokens.access_token || accessToken;
+    expiryDate = newTokens.expiry_date || expiryDate;
+
+    await doctor.update({
+      googleCalendarAccessToken: accessToken,
+      googleCalendarRefreshToken: newTokens.refresh_token || doctor.googleCalendarRefreshToken,
+      googleCalendarTokenExpiry: expiryDate ? new Date(expiryDate) : doctor.googleCalendarTokenExpiry,
+      googleCalendarConnected: true,
+    });
+  }
+
+  return setCredentials({
+    access_token: accessToken,
+    refresh_token: doctor.googleCalendarRefreshToken,
+    expiry_date: expiryDate,
+  });
 };
 
 // Create a calendar event
 export const createEvent = async (req, res) => {
   try {
-    // Check if Google Calendar credentials are configured
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
-      return res.status(500).json({ 
+    if (!googleCalendarConfigured()) {
+      return res.status(500).json({
         message: 'Google Calendar is not configured on the server. Please contact your administrator.',
-        error: 'Missing Google Calendar credentials in server configuration'
+        error: 'Missing Google Calendar credentials in server configuration',
       });
     }
 
     const doctorId = req.user.id;
     const { title, description, startTime, endTime, attendees } = req.body;
 
-    console.log('Creating calendar event for doctor:', doctorId);
-    console.log('Request body:', req.body);
-
-    // Validation
     if (!title || !startTime || !endTime) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Missing required fields: title, startTime, and endTime are required',
-        error: 'Validation error'
+        error: 'Validation error',
       });
     }
 
@@ -179,50 +179,37 @@ export const createEvent = async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found', error: 'Doctor not found' });
     }
 
-    if (!doctor.googleCalendarConnected) {
-      return res.status(400).json({ 
-        message: 'Google Calendar not connected. Please connect your Google Calendar first.',
-        error: 'Calendar not connected' 
-      });
-    }
-
-    console.log('Doctor found, calendar connected. Getting auth client...');
-    const auth = await getAuthClient(doctor);
-
-    console.log('Creating event in Google Calendar...');
+    const auth = await getDoctorCalendarAuth(doctor);
     const event = await createCalendarEvent(auth, {
       title,
       description,
       startTime,
       endTime,
-      attendees
+      attendees,
     });
 
-    console.log('Event created successfully:', event.id);
-    res.json({ message: 'Event created successfully', event });
+    return res.json({ message: 'Event created successfully', event });
   } catch (error) {
     console.error('Error creating calendar event:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    
-    // Provide more specific error messages based on error type
+
     let errorMessage = 'Error creating calendar event';
     let statusCode = 500;
-    
+
     if (error.message.includes('Invalid email format')) {
       errorMessage = error.message;
       statusCode = 400;
-    } else if (error.message.includes('tokens not found')) {
-      errorMessage = 'Google Calendar session expired. Please reconnect your Google Calendar.';
+    } else if (error.message.includes('not connected') || error.message.includes('refresh token')) {
+      errorMessage = 'Google Calendar is not connected. Please reconnect your Google Calendar.';
+      statusCode = 400;
     } else if (error.message.includes('invalid_grant')) {
       errorMessage = 'Google Calendar authorization expired. Please reconnect your Google Calendar.';
+      statusCode = 400;
     } else if (error.message.includes('Invalid value')) {
       errorMessage = 'Invalid event details. Please check your input and try again.';
       statusCode = 400;
     }
-    
-    res.status(statusCode).json({ message: errorMessage, error: error.message });
+
+    return res.status(statusCode).json({ message: errorMessage, error: error.message });
   }
 };
 
@@ -231,20 +218,19 @@ export const getUpcomingEvents = async (req, res) => {
   try {
     const doctorId = req.user.id;
     const { maxResults = 10 } = req.query;
-
     const doctor = await Doctor.findByPk(doctorId);
 
-    if (!doctor.googleCalendarConnected) {
-      return res.status(400).json({ message: 'Google Calendar not connected' });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    const auth = await getAuthClient(doctor);
-    const events = await listUpcomingEvents(auth, parseInt(maxResults));
+    const auth = await getDoctorCalendarAuth(doctor);
+    const events = await listUpcomingEvents(auth, Number.parseInt(maxResults, 10) || 10);
 
-    res.json({ events });
+    return res.json({ events });
   } catch (error) {
     console.error('Error fetching calendar events:', error);
-    res.status(500).json({ message: 'Error fetching calendar events', error: error.message });
+    return res.status(500).json({ message: 'Error fetching calendar events', error: error.message });
   }
 };
 
@@ -254,35 +240,31 @@ export const updateEvent = async (req, res) => {
     const doctorId = req.user.id;
     const { eventId } = req.params;
     const updates = req.body;
-
-    console.log('Updating event:', eventId, 'with updates:', updates);
-
     const doctor = await Doctor.findByPk(doctorId);
 
-    if (!doctor.googleCalendarConnected) {
-      return res.status(400).json({ message: 'Google Calendar not connected' });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    const auth = await getAuthClient(doctor);
+    const auth = await getDoctorCalendarAuth(doctor);
     const event = await updateCalendarEvent(auth, eventId, updates);
 
-    console.log('Event updated successfully:', event.id);
-    res.json({ message: 'Event updated successfully', event });
+    return res.json({ message: 'Event updated successfully', event });
   } catch (error) {
     console.error('Error updating calendar event:', error);
-    console.error('Error stack:', error.stack);
-    
+
     let errorMessage = 'Error updating calendar event';
     let statusCode = 500;
-    
+
     if (error.message.includes('Invalid email format')) {
       errorMessage = error.message;
       statusCode = 400;
-    } else if (error.message.includes('tokens not found')) {
-      errorMessage = 'Google Calendar session expired. Please reconnect your Google Calendar.';
+    } else if (error.message.includes('not connected') || error.message.includes('refresh token')) {
+      errorMessage = 'Google Calendar is not connected. Please reconnect your Google Calendar.';
+      statusCode = 400;
     }
-    
-    res.status(statusCode).json({ message: errorMessage, error: error.message });
+
+    return res.status(statusCode).json({ message: errorMessage, error: error.message });
   }
 };
 
@@ -291,20 +273,19 @@ export const deleteEvent = async (req, res) => {
   try {
     const doctorId = req.user.id;
     const { eventId } = req.params;
-
     const doctor = await Doctor.findByPk(doctorId);
 
-    if (!doctor.googleCalendarConnected) {
-      return res.status(400).json({ message: 'Google Calendar not connected' });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    const auth = await getAuthClient(doctor);
+    const auth = await getDoctorCalendarAuth(doctor);
     await deleteCalendarEvent(auth, eventId);
 
-    res.json({ message: 'Event deleted successfully' });
+    return res.json({ message: 'Event deleted successfully' });
   } catch (error) {
     console.error('Error deleting calendar event:', error);
-    res.status(500).json({ message: 'Error deleting calendar event', error: error.message });
+    return res.status(500).json({ message: 'Error deleting calendar event', error: error.message });
   }
 };
 
@@ -314,13 +295,17 @@ export const getConnectionStatus = async (req, res) => {
     const doctorId = req.user.id;
     const doctor = await Doctor.findByPk(doctorId);
 
-    res.json({
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    return res.json({
       connected: doctor.googleCalendarConnected || false,
-      tokenExpiry: doctor.googleCalendarTokenExpiry
+      tokenExpiry: doctor.googleCalendarTokenExpiry,
     });
   } catch (error) {
     console.error('Error getting connection status:', error);
-    res.status(500).json({ message: 'Error getting connection status' });
+    return res.status(500).json({ message: 'Error getting connection status' });
   }
 };
 
@@ -333,5 +318,5 @@ export default {
   getUpcomingEvents,
   updateEvent,
   deleteEvent,
-  getConnectionStatus
+  getConnectionStatus,
 };

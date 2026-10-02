@@ -45,7 +45,9 @@ type BookingStep =
 type BookingAction =
   | "start_booking"
   | "check_time_slots"
-  | "select_time_slot";
+  | "select_time_slot"
+  | "cancel_appointment"
+  | "reschedule_appointment";
 
 type DocumentType =
   | "MEDICAL_REPORT"
@@ -90,6 +92,15 @@ type ChatMessage = {
   appointmentId?:
     | string
     | number;
+
+  appointmentOperation?:
+    | "cancelled"
+    | "rescheduled"
+    | "none";
+
+  intent?: string;
+
+  rescheduleMode?: boolean;
 
   bookingPrompt?:
     | "pending"
@@ -141,6 +152,13 @@ type ChatApiResponse = {
   appointmentId?:
     | string
     | number;
+
+  appointmentOperation?:
+    | "cancelled"
+    | "rescheduled"
+    | "none";
+
+  rescheduleMode?: boolean;
 
   historySaved?: boolean;
 
@@ -644,6 +662,12 @@ export default function FeatureSelectionScreen({
               inputMode:
                 "text",
 
+              intent:
+                data.intent,
+
+              rescheduleMode:
+                data.rescheduleMode,
+
               doctors:
                 returnedDoctors,
 
@@ -664,6 +688,9 @@ export default function FeatureSelectionScreen({
               appointmentId:
                 data.appointmentId,
 
+              appointmentOperation:
+                data.appointmentOperation,
+
               historySaved:
                 data.historySaved,
 
@@ -677,7 +704,9 @@ export default function FeatureSelectionScreen({
         );
 
         if (
-          data.bookingConfirmed
+          data.bookingConfirmed ||
+          data.appointmentOperation === "cancelled" ||
+          data.appointmentOperation === "rescheduled"
         ) {
           setSelectedDoctor(
             null
@@ -920,6 +949,12 @@ export default function FeatureSelectionScreen({
               inputMode:
                 "voice",
 
+              intent:
+                data.intent,
+
+              rescheduleMode:
+                data.rescheduleMode,
+
               voiceAudioBase64:
                 data.audioBase64 ||
                 undefined,
@@ -942,6 +977,9 @@ export default function FeatureSelectionScreen({
 
               appointmentId:
                 data.appointmentId,
+
+              appointmentOperation:
+                data.appointmentOperation,
 
               historySaved:
                 data.historySaved,
@@ -974,7 +1012,9 @@ export default function FeatureSelectionScreen({
         }
 
         if (
-          data.bookingConfirmed
+          data.bookingConfirmed ||
+          data.appointmentOperation === "cancelled" ||
+          data.appointmentOperation === "rescheduled"
         ) {
           setSelectedDoctor(
             null
@@ -1483,8 +1523,7 @@ export default function FeatureSelectionScreen({
                   ) => {
                     if (
                       m.bookingStep !==
-                        "date" ||
-                      !selectedDoctor
+                      "date"
                     ) {
                       return;
                     }
@@ -1492,6 +1531,39 @@ export default function FeatureSelectionScreen({
                     setSelectedDate(
                       value
                     );
+
+                    /*
+                     * RESCHEDULE:
+                     * Send only the selected date.
+                     * The n8n operation state already knows
+                     * which appointment is being rescheduled.
+                     *
+                     * Do not include "appointment 7" again,
+                     * because an explicit appointment id is
+                     * treated as a fresh operation by the
+                     * state machine.
+                     */
+                    if (
+                      m.rescheduleMode ||
+                      m.intent ===
+                        "reschedule_date_required"
+                    ) {
+                      void handleSend(
+                        value
+                      );
+
+                      return;
+                    }
+
+                    /*
+                     * NORMAL BOOKING:
+                     * Requires the selected doctor.
+                     */
+                    if (
+                      !selectedDoctor
+                    ) {
+                      return;
+                    }
 
                     void handleSend(
                       `My preferred appointment date is ${value}. Please check available times.`,
@@ -1511,6 +1583,29 @@ export default function FeatureSelectionScreen({
                   onSelectTime={(
                     time
                   ) => {
+                    /*
+                     * RESCHEDULE:
+                     * The backend/n8n state already contains
+                     * appointment id + selected new date.
+                     * Sending the selected slot is enough to
+                     * execute the reschedule operation.
+                     */
+                    if (
+                      m.rescheduleMode ||
+                      m.intent ===
+                        "reschedule_time_required"
+                    ) {
+                      void handleSend(
+                        time
+                      );
+
+                      return;
+                    }
+
+                    /*
+                     * NORMAL BOOKING:
+                     * Keep the existing confirmation preview.
+                     */
                     if (
                       !selectedDoctor ||
                       !selectedDate

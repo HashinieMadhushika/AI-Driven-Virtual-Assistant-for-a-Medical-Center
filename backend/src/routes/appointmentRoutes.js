@@ -3,7 +3,17 @@ import * as appointmentController from '../controllers/appointmentController.js'
 import { authenticateToken, authorizeRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
-// All routes require authentication
+
+/*
+ * Patient-facing assistant routes.
+ * These routes deliberately sit BEFORE router.use(authenticateToken).
+ * They require both appointment reference and patient email.
+ */
+router.get('/public/:id', appointmentController.lookupPublicAppointment);
+router.post('/public/:id/cancel', appointmentController.cancelPublicAppointment);
+router.post('/public/:id/reschedule', appointmentController.reschedulePublicAppointment);
+
+// All routes below require authentication.
 router.use(authenticateToken);
 
 // Get all appointments for the logged-in doctor
