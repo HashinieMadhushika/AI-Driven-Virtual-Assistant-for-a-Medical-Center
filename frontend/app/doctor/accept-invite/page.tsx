@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const router = useRouter()
   const params = useSearchParams()
   const token = params.get('token') || ''
@@ -30,20 +30,37 @@ export default function AcceptInvitePage() {
     }
 
     setLoading(true)
+
     try {
-      const res = await fetch('http://localhost:5000/api/doctors/accept-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      })
+      const res = await fetch(
+        'http://localhost:5000/api/doctors/accept-invite',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token,
+            password,
+          }),
+        }
+      )
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || 'Failed to set password')
 
-      // ✅ redirect to login with auto role selected
+      if (!res.ok) {
+        throw new Error(
+          data?.message || 'Failed to set password'
+        )
+      }
+
       router.push('/login?role=doctor')
-    } catch (err: any) {
-      setError(err?.message || 'Something went wrong')
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong'
+      )
     } finally {
       setLoading(false)
     }
@@ -52,7 +69,10 @@ export default function AcceptInvitePage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-md bg-white border rounded-2xl shadow p-8">
-        <h1 className="text-xl font-semibold text-slate-800">Set Doctor Password</h1>
+        <h1 className="text-xl font-semibold text-slate-800">
+          Set Doctor Password
+        </h1>
+
         <p className="text-sm text-slate-500 mt-1">
           Create a password to activate your doctor account.
         </p>
@@ -63,26 +83,40 @@ export default function AcceptInvitePage() {
           </div>
         )}
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
+        <form
+          onSubmit={submit}
+          className="mt-6 space-y-4"
+        >
           <div>
-            <label className="text-xs font-medium text-slate-600">New Password</label>
+            <label className="text-xs font-medium text-slate-600">
+              New Password
+            </label>
+
             <input
               type="password"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-600">Confirm Password</label>
+            <label className="text-xs font-medium text-slate-600">
+              Confirm Password
+            </label>
+
             <input
               type="password"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
             />
-            <p className="text-[11px] text-slate-400 mt-1">Minimum 6 characters</p>
+
+            <p className="text-[11px] text-slate-400 mt-1">
+              Minimum 6 characters
+            </p>
           </div>
 
           {error && (
@@ -101,5 +135,23 @@ export default function AcceptInvitePage() {
         </form>
       </div>
     </div>
+  )
+}
+
+function AcceptInviteLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <p className="text-sm text-slate-500">
+        Loading invitation...
+      </p>
+    </div>
+  )
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<AcceptInviteLoading />}>
+      <AcceptInviteContent />
+    </Suspense>
   )
 }

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function DoctorProfile() {
+function DoctorProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [doctor, setDoctor] = useState<any>(null);
@@ -1269,5 +1269,21 @@ export default function DoctorProfile() {
         </div>
       )}
     </div>
+  );
+}
+
+function DoctorProfileLoading() {
+  return (
+    <div className="flex min-h-[400px] items-center justify-center">
+      <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-600" />
+    </div>
+  );
+}
+
+export default function DoctorProfile() {
+  return (
+    <Suspense fallback={<DoctorProfileLoading />}>
+      <DoctorProfileContent />
+    </Suspense>
   );
 }
