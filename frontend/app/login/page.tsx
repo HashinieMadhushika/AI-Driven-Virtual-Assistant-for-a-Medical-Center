@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HeartPulse, Shield, Stethoscope } from 'lucide-react'
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'
+
 type Role = 'admin' | 'doctor'
 
 export default function LoginPage() {
@@ -45,8 +47,8 @@ export default function LoginPage() {
       // ✅ Role-based endpoint
       const endpoint =
         role === 'doctor'
-          ? 'http://localhost:5000/api/doctors/login'
-          : 'http://localhost:5000/api/auth/login'
+          ? `${API}/api/doctors/login`
+          : `${API}/api/auth/login`
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -194,7 +196,7 @@ export default function LoginPage() {
         <div className="mt-3 text-center">
           <button
             type="button"
-            onClick={() => router.push('/homepage')}
+            onClick={() => router.push('/')}
             className="text-xs text-teal-700 hover:underline"
           >
             ← Back to Home

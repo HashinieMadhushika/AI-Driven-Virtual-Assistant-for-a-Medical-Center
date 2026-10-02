@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'
+
 export default function AcceptInvitePage() {
   const router = useRouter()
   const params = useSearchParams()
@@ -31,7 +33,7 @@ export default function AcceptInvitePage() {
 
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:5000/api/doctors/accept-invite', {
+      const res = await fetch(`${API}/api/doctors/accept-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password }),

@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:5000";
+
 type SubmitMessage = {
   type: "success" | "error";
   text: string;
@@ -22,7 +24,7 @@ const Contact = () => {
     setSubmitMessage(null);
 
     try {
-      const response = await fetch("http://localhost:5000/api/contact", {
+      const response = await fetch(`${API}/api/contact`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
