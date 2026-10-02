@@ -1,65 +1,192 @@
-const N8N_WEBHOOK = process.env.N8N_ASSISTANT_WEBHOOK;
+const DEFAULT_TIMEOUT_MS = 60000;
 
-export async function callN8nAssistant(payload) {
-  if (!N8N_WEBHOOK) {
-    throw new Error("N8N_ASSISTANT_WEBHOOK is not configured");
+export async function callN8nAssistant({
+  message = "",
+  sessionId,
+  email,
+  action = "",
+  selectedDoctor = null,
+  selectedDate = "",
+  displayDate = "",
+  dayName = "",
+  selectedTime = "",
+  audioBase64 = "",
+  mimeType = "",
+  requestVoiceReply = false,
+}) {
+  const webhookUrl =
+    process.env.N8N_ASSISTANT_WEBHOOK;
+
+  if (!webhookUrl) {
+    throw new Error(
+      "N8N_ASSISTANT_WEBHOOK is not configured"
+    );
   }
 
-  const controller = new AbortController();
+  if (!sessionId) {
+    throw new Error(
+      "sessionId is required"
+    );
+  }
 
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 45000);
+  if (!email) {
+    throw new Error(
+      "email is required"
+    );
+  }
+
+  const hasText =
+    typeof message === "string" &&
+    message.trim().length > 0;
+
+  const hasAudio =
+    typeof audioBase64 === "string" &&
+    audioBase64.length > 100;
+
+  if (!hasText && !hasAudio) {
+    throw new Error(
+      "Either message or audioBase64 is required"
+    );
+  }
+
+  const controller =
+    new AbortController();
+
+  const timeout =
+    setTimeout(
+      () => controller.abort(),
+      DEFAULT_TIMEOUT_MS
+    );
+
+  const payload = {
+    message:
+      hasText
+        ? message.trim()
+        : "",
+
+    sessionId,
+
+    email,
+
+    action:
+      action || "",
+
+    selectedDoctor:
+      selectedDoctor || null,
+
+    selectedDate:
+      selectedDate || "",
+
+    displayDate:
+      displayDate || "",
+
+    dayName:
+      dayName || "",
+
+    selectedTime:
+      selectedTime || "",
+
+    audioBase64:
+      hasAudio
+        ? audioBase64
+        : "",
+
+    mimeType:
+      hasAudio
+        ? mimeType ||
+          "audio/webm"
+        : "",
+
+    requestVoiceReply:
+      Boolean(
+        requestVoiceReply
+      ),
+  };
 
   try {
-    const response = await fetch(N8N_WEBHOOK, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify({
-        message: payload.message || "",
-        sessionId: payload.sessionId,
-        email: payload.email,
-
-        action: payload.action || "",
-        selectedDoctor: payload.selectedDoctor || null,
-        selectedDate: payload.selectedDate || "",
-        selectedTime: payload.selectedTime || "",
-
-        audioBase64: payload.audioBase64 || undefined,
-        mimeType: payload.mimeType || undefined,
-
+    console.log(
+      "[n8nAssistantService] request",
+      {
+        webhookUrl,
+        sessionId,
+        email,
+        action:
+          payload.action,
+        hasText,
+        hasAudio,
+        mimeType:
+          payload.mimeType,
         requestVoiceReply:
-          payload.requestVoiceReply === true,
-      }),
+          payload.requestVoiceReply,
+      }
+    );
 
-      signal: controller.signal,
-    });
+    const response =
+      await fetch(
+        webhookUrl,
+        {
+          method: "POST",
 
-    const responseText = await response.text();
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify(
+              payload
+            ),
+
+          signal:
+            controller.signal,
+        }
+      );
+
+    const raw =
+      await response.text();
+
+    let result;
+
+    try {
+      result =
+        raw
+          ? JSON.parse(raw)
+          : {};
+    } catch {
+      result = {
+        reply: raw,
+      };
+    }
 
     if (!response.ok) {
+      console.error(
+        "[n8nAssistantService] n8n error",
+        response.status,
+        result
+      );
+
       throw new Error(
-        `n8n returned ${response.status}: ${responseText}`
+        result?.message ||
+          result?.error ||
+          `n8n returned HTTP ${response.status}`
       );
     }
 
-    try {
-      return JSON.parse(responseText);
-    } catch {
-      return {
-        reply: responseText,
-      };
-    }
+    return result;
   } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("n8n assistant request timed out");
+    if (
+      error?.name ===
+      "AbortError"
+    ) {
+      throw new Error(
+        "n8n assistant request timed out"
+      );
     }
 
     throw error;
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(
+      timeout
+    );
   }
 }
