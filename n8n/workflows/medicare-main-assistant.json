@@ -1,5 +1,5 @@
 {
-  "name": "Medicare Medical AI Assistant - Symptom Triage + Qdrant RAG",
+  "name": "Medicare Medical AI Assistant",
   "nodes": [
     {
       "parameters": {
@@ -13,10 +13,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -1312,
-        288
+        -3648,
+        -464
       ],
-      "id": "4c17444c-c8b2-43a6-8106-a5acaf1db9a4",
+      "id": "7023fcdf-488a-497f-82f3-f9a5105c5c3c",
       "name": "Website Webhook",
       "webhookId": "f0e2242c-6f0d-4c10-93c8-6a48c7cbdde8"
     },
@@ -83,10 +83,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -1072,
-        272
+        -3424,
+        -480
       ],
-      "id": "519d9254-a21d-48d9-95c8-40528134cbba",
+      "id": "f33529bf-97c1-4f74-9dc7-1c24411edcf8",
       "name": "Detect Input Type"
     },
     {
@@ -96,10 +96,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -848,
-        48
+        -3168,
+        -704
       ],
-      "id": "004d6b15-eb02-448d-9bc4-ef274b754ee4",
+      "id": "167991b9-9db1-4cf9-ab67-244abba3bcca",
       "name": "Decode Audio"
     },
     {
@@ -135,10 +135,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -624,
-        48
+        -2992,
+        -704
       ],
-      "id": "19a06fba-c751-4366-896c-8f48cb63fe15",
+      "id": "d3a60d2f-6bc1-485a-a909-f41aab082b59",
       "name": "ElevenLabs STT"
     },
     {
@@ -148,10 +148,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -416,
-        48
+        -2768,
+        -704
       ],
-      "id": "84c26af4-579b-4ada-b2b3-0ea46e4f23c8",
+      "id": "65ad7073-a318-4940-b42a-3fbef2116f54",
       "name": "Normalize Voice"
     },
     {
@@ -161,10 +161,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -624,
-        288
+        -2992,
+        -464
       ],
-      "id": "1a961dfb-44ee-4ae6-9e06-108c901c9d27",
+      "id": "ddffd906-953f-4b21-b17e-3469f41bc452",
       "name": "Normalize Text"
     },
     {
@@ -196,23 +196,23 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -624,
-        784
+        -3184,
+        -288
       ],
-      "id": "f2e153be-7545-4969-916f-441ce4faee6d",
+      "id": "53cb4207-8540-4b10-8700-7cd992f77f12",
       "name": "Input Error"
     },
     {
       "parameters": {
-        "jsCode": "const item = $json;\n\nconst sessionId =\n  item.sessionId || \"default\";\n\nconst voiceMode =\n  item.voiceMode === true ||\n  item.requestVoiceReply === true;\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (!store.bookingStates) {\n  store.bookingStates = {};\n}\n\nif (!store.appointmentActionStates) {\n  store.appointmentActionStates = {};\n}\n\nlet state =\n  store.bookingStates[\n    sessionId\n  ] || {\n    stage: \"idle\",\n  };\n\nlet operationState =\n  store.appointmentActionStates[\n    sessionId\n  ] || {\n    type: \"\",\n    stage: \"idle\",\n    appointmentId: \"\",\n    newAppointmentDate: \"\",\n    newAppointmentTime: \"\",\n    cancellationReason: \"\",\n  };\n\n/*\n * ==================================================\n * INPUT NORMALIZATION\n * ==================================================\n *\n * Text:\n *   item.message\n *\n * Voice:\n *   STT output should already be placed into\n *   normalizedMessage/message/transcript.\n *\n * Both then use the same NLP/state logic.\n * ==================================================\n */\n\nconst originalMessage =\n  String(\n    item.normalizedMessage ||\n      item.message ||\n      item.transcript ||\n      \"\"\n  ).trim();\n\nconst msg =\n  originalMessage\n    .toLowerCase()\n    .replace(/[,?.!]/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n\n/*\n * ==================================================\n * HELPERS\n * ==================================================\n */\n\nfunction parseDoctor(raw) {\n  if (!raw) {\n    return null;\n  }\n\n  if (\n    typeof raw ===\n    \"object\"\n  ) {\n    return raw;\n  }\n\n  try {\n    return JSON.parse(\n      raw\n    );\n  } catch {\n    return null;\n  }\n}\n\nfunction isoLocal(date) {\n  const year =\n    date.getFullYear();\n\n  const month =\n    String(\n      date.getMonth() + 1\n    ).padStart(\n      2,\n      \"0\"\n    );\n\n  const day =\n    String(\n      date.getDate()\n    ).padStart(\n      2,\n      \"0\"\n    );\n\n  return `${year}-${month}-${day}`;\n}\n\nfunction dayName(\n  dateString\n) {\n  if (!dateString) {\n    return \"\";\n  }\n\n  const date =\n    new Date(\n      `${dateString}T12:00:00`\n    );\n\n  return [\n    \"sunday\",\n    \"monday\",\n    \"tuesday\",\n    \"wednesday\",\n    \"thursday\",\n    \"friday\",\n    \"saturday\",\n  ][date.getDay()];\n}\n\n/*\n * ==================================================\n * NATURAL DATE PARSER\n * ==================================================\n *\n * Supports BOTH text and voice:\n *\n * today\n * tomorrow\n * 2026-10-05\n * October 5\n * October fifth\n * October 5th\n * fifth October\n * fifth of October\n * 5 October\n * 5th of October\n *\n * Also supports:\n * twenty first of October\n * October twenty first\n * etc.\n * ==================================================\n */\n\nfunction extractDate(\n  text\n) {\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /,/g,\n        \" \"\n      )\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const now =\n    new Date();\n\n  now.setHours(\n    0,\n    0,\n    0,\n    0\n  );\n\n  /*\n   * TODAY\n   */\n  if (\n    /\\btoday\\b/.test(\n      normalized\n    )\n  ) {\n    return isoLocal(\n      now\n    );\n  }\n\n  /*\n   * TOMORROW\n   */\n  if (\n    /\\btomorrow\\b/.test(\n      normalized\n    )\n  ) {\n    const tomorrow =\n      new Date(\n        now\n      );\n\n    tomorrow.setDate(\n      tomorrow.getDate() +\n        1\n    );\n\n    return isoLocal(\n      tomorrow\n    );\n  }\n\n  /*\n   * ISO format:\n   * 2026-10-05\n   */\n  const iso =\n    normalized.match(\n      /\\b(20\\d{2}-\\d{2}-\\d{2})\\b/\n    );\n\n  if (iso) {\n    return iso[1];\n  }\n\n  const months = {\n    january: 0,\n    february: 1,\n    march: 2,\n    april: 3,\n    may: 4,\n    june: 5,\n    july: 6,\n    august: 7,\n    september: 8,\n    october: 9,\n    november: 10,\n    december: 11,\n  };\n\n  const ordinalWords = {\n    first: 1,\n    second: 2,\n    third: 3,\n    fourth: 4,\n    fifth: 5,\n    sixth: 6,\n    seventh: 7,\n    eighth: 8,\n    ninth: 9,\n    tenth: 10,\n    eleventh: 11,\n    twelfth: 12,\n    thirteenth: 13,\n    fourteenth: 14,\n    fifteenth: 15,\n    sixteenth: 16,\n    seventeenth: 17,\n    eighteenth: 18,\n    nineteenth: 19,\n    twentieth: 20,\n\n    \"twenty first\": 21,\n    \"twenty-first\": 21,\n\n    \"twenty second\": 22,\n    \"twenty-second\": 22,\n\n    \"twenty third\": 23,\n    \"twenty-third\": 23,\n\n    \"twenty fourth\": 24,\n    \"twenty-fourth\": 24,\n\n    \"twenty fifth\": 25,\n    \"twenty-fifth\": 25,\n\n    \"twenty sixth\": 26,\n    \"twenty-sixth\": 26,\n\n    \"twenty seventh\": 27,\n    \"twenty-seventh\": 27,\n\n    \"twenty eighth\": 28,\n    \"twenty-eighth\": 28,\n\n    \"twenty ninth\": 29,\n    \"twenty-ninth\": 29,\n\n    thirtieth: 30,\n\n    \"thirty first\": 31,\n    \"thirty-first\": 31,\n  };\n\n  function resolveDay(\n    value\n  ) {\n    if (!value) {\n      return 0;\n    }\n\n    const clean =\n      String(value)\n        .toLowerCase()\n        .trim();\n\n    /*\n     * 5\n     * 5th\n     * 21st\n     */\n    const numeric =\n      clean.match(\n        /^(\\d{1,2})(?:st|nd|rd|th)?$/\n      );\n\n    if (numeric) {\n      return Number(\n        numeric[1]\n      );\n    }\n\n    return (\n      ordinalWords[\n        clean\n      ] || 0\n    );\n  }\n\n  const monthPattern =\n    Object.keys(\n      months\n    ).join(\"|\");\n\n  const ordinalPattern =\n    Object.keys(\n      ordinalWords\n    )\n      .sort(\n        (a, b) =>\n          b.length -\n          a.length\n      )\n      .map(\n        (word) =>\n          word.replace(\n            /[-\\s]+/g,\n            \"[-\\\\s]+\"\n          )\n      )\n      .join(\"|\");\n\n  /*\n   * fifth of October\n   * fifth October\n   * 5th of October\n   * 5 October\n   */\n  const dayMonth =\n    new RegExp(\n      `(?:the\\\\s+)?(${ordinalPattern}|\\\\d{1,2}(?:st|nd|rd|th)?)\\\\s+(?:of\\\\s+)?(${monthPattern})(?:\\\\s+(20\\\\d{2}))?`,\n      \"i\"\n    );\n\n  /*\n   * October fifth\n   * October 5th\n   * October 5\n   */\n  const monthDay =\n    new RegExp(\n      `(${monthPattern})\\\\s+(?:the\\\\s+)?(${ordinalPattern}|\\\\d{1,2}(?:st|nd|rd|th)?)(?:\\\\s+(20\\\\d{2}))?`,\n      \"i\"\n    );\n\n  let match =\n    normalized.match(\n      dayMonth\n    );\n\n  let day =\n    0;\n\n  let month =\n    -1;\n\n  let year =\n    now.getFullYear();\n\n  let explicitYear =\n    false;\n\n  if (match) {\n    day =\n      resolveDay(\n        match[1]\n      );\n\n    month =\n      months[\n        match[2]\n          .toLowerCase()\n      ];\n\n    if (\n      match[3]\n    ) {\n      year =\n        Number(\n          match[3]\n        );\n\n      explicitYear =\n        true;\n    }\n  } else {\n    match =\n      normalized.match(\n        monthDay\n      );\n\n    if (match) {\n      month =\n        months[\n          match[1]\n            .toLowerCase()\n        ];\n\n      day =\n        resolveDay(\n          match[2]\n        );\n\n      if (\n        match[3]\n      ) {\n        year =\n          Number(\n            match[3]\n          );\n\n        explicitYear =\n          true;\n      }\n    }\n  }\n\n  if (\n    !day ||\n    month < 0\n  ) {\n    return \"\";\n  }\n\n  let candidate =\n    new Date(\n      year,\n      month,\n      day\n    );\n\n  candidate.setHours(\n    0,\n    0,\n    0,\n    0\n  );\n\n  /*\n   * Reject impossible dates:\n   *\n   * February 31\n   * April 31\n   * etc.\n   */\n  if (\n    candidate.getDate() !==\n      day ||\n    candidate.getMonth() !==\n      month\n  ) {\n    return \"\";\n  }\n\n  /*\n   * If no year was given and the date\n   * already passed this year, use next year.\n   */\n  if (\n    !explicitYear &&\n    candidate <\n      now\n  ) {\n    candidate =\n      new Date(\n        year + 1,\n        month,\n        day\n      );\n  }\n\n  return isoLocal(\n    candidate\n  );\n}\n\n/*\n * ==================================================\n * ORDINAL PARSER\n * ==================================================\n *\n * Context decides what the ordinal means.\n *\n * awaiting_doctor:\n *   first one = doctor 1\n *\n * awaiting_time:\n *   first one = time slot 1\n *\n * awaiting_date:\n *   date parser runs instead, so\n *   \"fifth of October\" is NOT doctor 5.\n * ==================================================\n */\n\nfunction getOrdinalIndex(\n  text\n) {\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const patterns = [\n    {\n      pattern:\n        /\\b(first one|first|1st|number one|doctor one|dr one|slot one|time one)\\b/,\n      index: 0,\n    },\n\n    {\n      pattern:\n        /\\b(second one|second|2nd|number two|doctor two|dr two|slot two|time two)\\b/,\n      index: 1,\n    },\n\n    {\n      pattern:\n        /\\b(third one|third|3rd|number three|doctor three|dr three|slot three|time three)\\b/,\n      index: 2,\n    },\n\n    {\n      pattern:\n        /\\b(fourth one|fourth|4th|number four|doctor four|dr four|slot four|time four)\\b/,\n      index: 3,\n    },\n\n    {\n      pattern:\n        /\\b(fifth one|fifth|5th|number five|doctor five|dr five|slot five|time five)\\b/,\n      index: 4,\n    },\n\n    {\n      pattern:\n        /\\b(sixth one|sixth|6th|number six|doctor six|dr six|slot six|time six)\\b/,\n      index: 5,\n    },\n  ];\n\n  for (\n    const entry\n    of patterns\n  ) {\n    if (\n      entry.pattern.test(\n        normalized\n      )\n    ) {\n      return entry.index;\n    }\n  }\n\n  return -1;\n}\n\n/*\n * ==================================================\n * DOCTOR MATCHING\n * ==================================================\n */\n\nfunction matchDoctor(\n  text,\n  doctors\n) {\n  if (\n    !Array.isArray(\n      doctors\n    ) ||\n    doctors.length === 0\n  ) {\n    return null;\n  }\n\n  /*\n   * Ordinal selection:\n   *\n   * first doctor\n   * first one\n   * go with the first one\n   */\n  const ordinal =\n    getOrdinalIndex(\n      text\n    );\n\n  if (\n    ordinal >= 0 &&\n    doctors[ordinal]\n  ) {\n    return doctors[\n      ordinal\n    ];\n  }\n\n  /*\n   * Match doctor names:\n   *\n   * Chamodi\n   * Dr Chamodi\n   * Chamodi Bandara\n   */\n  let bestDoctor =\n    null;\n\n  let bestScore =\n    0;\n\n  for (\n    const doctor\n    of doctors\n  ) {\n    const doctorName =\n      String(\n        doctor.doctorName ||\n          doctor.name ||\n          \"\"\n      )\n        .toLowerCase()\n        .replace(\n          /\\bdoctor\\b/g,\n          \"\"\n        )\n        .replace(\n          /\\bdr\\.?\\b/g,\n          \"\"\n        )\n        .trim();\n\n    const nameParts =\n      doctorName\n        .split(\n          /\\s+/\n        )\n        .filter(\n          (part) =>\n            part.length >\n            2\n        );\n\n    const score =\n      nameParts.filter(\n        (part) =>\n          text.includes(\n            part\n          )\n      ).length;\n\n    if (\n      score >\n      bestScore\n    ) {\n      bestScore =\n        score;\n\n      bestDoctor =\n        doctor;\n    }\n  }\n\n  return bestScore > 0\n    ? bestDoctor\n    : null;\n}\n\n/*\n * ==================================================\n * TIME MATCHING\n * ==================================================\n *\n * Supports:\n *\n * first\n * first one\n * first time\n * first slot\n *\n * second\n * second one\n * second time slot\n *\n * 5 pm\n * 5:00 pm\n *\n * exact slot text\n * ==================================================\n */\n\nfunction extractTime(\n  text,\n  slots\n) {\n  if (\n    !Array.isArray(\n      slots\n    ) ||\n    slots.length === 0\n  ) {\n    return \"\";\n  }\n\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const ordinal =\n    getOrdinalIndex(\n      normalized\n    );\n\n  if (\n    ordinal >= 0 &&\n    slots[ordinal]\n  ) {\n    const candidate =\n      slots[ordinal];\n\n    if (\n      typeof candidate === \"object\" &&\n      candidate?.booked === true\n    ) {\n      return \"\";\n    }\n\n    return String(\n      candidate?.label ||\n      candidate\n    );\n  }\n\n  for (\n    const slot\n    of slots\n  ) {\n    if (\n      typeof slot === \"object\" &&\n      slot?.booked === true\n    ) {\n      continue;\n    }\n\n    const label =\n      String(\n        slot?.label ||\n          slot\n      );\n\n    const lowerLabel =\n      label\n        .toLowerCase();\n\n    const startingTime =\n      lowerLabel\n        .split(\"-\")[0]\n        .trim();\n\n    if (\n      normalized.includes(\n        lowerLabel\n      ) ||\n      normalized.includes(\n        startingTime\n      )\n    ) {\n      return label;\n    }\n  }\n\n  const spokenTime =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (\n    spokenTime\n  ) {\n    const hour =\n      spokenTime[1];\n\n    const minutes =\n      spokenTime[2] ||\n      \"00\";\n\n    const meridiem =\n      spokenTime[3]\n        .toUpperCase();\n\n    const requested =\n      `${hour}:${minutes} ${meridiem}`;\n\n    for (\n      const slot\n      of slots\n    ) {\n      if (\n        typeof slot === \"object\" &&\n        slot?.booked === true\n      ) {\n        continue;\n      }\n\n      const label =\n        String(\n          slot?.label ||\n            slot\n        );\n\n      if (\n        label\n          .toLowerCase()\n          .includes(\n            requested\n              .toLowerCase()\n          )\n      ) {\n        return label;\n      }\n    }\n  }\n\n  return \"\";\n}\n\n\n/*\n * ==================================================\n * CANCEL / RESCHEDULE HELPERS\n * ==================================================\n */\n\nfunction extractAppointmentId(\n  text\n) {\n  const normalized =\n    String(text || \"\")\n      .toLowerCase()\n      .replace(/[,?.!]/g, \" \")\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n  const explicit =\n    normalized.match(\n      /\\b(?:appointment|appointment number|appointment id|reference|reference number|booking|booking number)\\s*(?:number|id|no\\.?)?\\s*#?\\s*(\\d+)\\b/i\n    );\n\n  if (explicit) {\n    return explicit[1];\n  }\n\n  if (\n    operationState.stage ===\n      \"cancel_awaiting_id\" ||\n    operationState.stage ===\n      \"reschedule_awaiting_id\"\n  ) {\n    const standalone =\n      normalized.match(\n        /^\\s*#?\\s*(\\d+)\\s*$/\n      );\n\n    if (standalone) {\n      return standalone[1];\n    }\n  }\n\n  return \"\";\n}\n\nfunction extractFlexibleTime(\n  text\n) {\n  let normalized =\n    String(text || \"\")\n      .toLowerCase()\n      .replace(/[,?.!]/g, \" \")\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n  const wordHours = {\n    one: \"1\",\n    two: \"2\",\n    three: \"3\",\n    four: \"4\",\n    five: \"5\",\n    six: \"6\",\n    seven: \"7\",\n    eight: \"8\",\n    nine: \"9\",\n    ten: \"10\",\n    eleven: \"11\",\n    twelve: \"12\",\n  };\n\n  normalized =\n    normalized.replace(\n      /\\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s*(am|pm)\\b/g,\n      (_, word, meridiem) =>\n        `${wordHours[word]} ${meridiem}`\n    );\n\n  const range =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\s*(?:-|to)\\s*(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (range) {\n    const startMinutes =\n      range[2] || \"00\";\n\n    const endMinutes =\n      range[5] || \"00\";\n\n    return `${Number(range[1])}:${startMinutes} ${range[3].toUpperCase()} - ${Number(range[4])}:${endMinutes} ${range[6].toUpperCase()}`;\n  }\n\n  const single =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (single) {\n    const minutes =\n      single[2] || \"00\";\n\n    return `${Number(single[1])}:${minutes} ${single[3].toUpperCase()}`;\n  }\n\n  return \"\";\n}\n\nfunction isYes(\n  text\n) {\n  return /^(yes|yeah|yep|confirm|confirmed|please do|do it|go ahead|sure|okay|ok)$/i.test(\n    String(text || \"\").trim()\n  );\n}\n\nfunction isNo(\n  text\n) {\n  return /^(no|nope|cancel that|stop|never mind|nevermind|do not|don't)$/i.test(\n    String(text || \"\").trim()\n  );\n}\n\nfunction saveOperationState() {\n  store.appointmentActionStates[\n    sessionId\n  ] = operationState;\n}\n\nfunction clearOperationState() {\n  delete store\n    .appointmentActionStates[\n      sessionId\n    ];\n\n  operationState = {\n    type: \"\",\n    stage: \"idle\",\n    appointmentId: \"\",\n    newAppointmentDate: \"\",\n    newAppointmentTime: \"\",\n    cancellationReason: \"\",\n  };\n}\n\n/*\n * ==================================================\n * INTENT / ACTION FLAGS\n * ==================================================\n */\n\nconst action =\n  String(\n    item.action ||\n      \"\"\n  )\n    .toLowerCase()\n    .trim();\n\nconst selectedDoctor =\n  parseDoctor(\n    item.selectedDoctor\n  );\n\nconst asksForDoctorList =\n  /\\b(available doctors|available doctor|who are the doctors|list doctors|show doctors|doctors available)\\b/.test(\n    msg\n  );\n\nconst startsBooking =\n  /\\b(book|booking|appointment|schedule)\\b/.test(\n    msg\n  );\n\n/*\n * A new general booking request.\n *\n * Examples:\n *\n * Can I book an appointment?\n * I want to book an appointment\n * Book an appointment\n * Schedule an appointment\n */\nconst freshBookingRequest =\n  startsBooking &&\n  /\\b(can i book|i want to book|i would like to book|book an appointment|make an appointment|schedule an appointment|new appointment)\\b/.test(\n    msg\n  ) &&\n  !selectedDoctor;\n\n/*\n * Availability language.\n */\nconst asksAvailability =\n  /\\b(available dates|available date|available days|what days|which days|what dates|which dates|available times|available time|what times|which times|when is|when are|availability|show availability|tell me.*available)\\b/.test(\n    msg\n  );\n\nconst asksFAQ =\n  /\\b(hour|open|close|location|address|contact|phone|email|fee|cost|price|insurance|walk-in|service|services)\\b/.test(\n    msg\n  );\n\nconst asksSymptoms =\n  /\\b(chest pain|chest tightness|shortness of breath|difficulty breathing|breath|bleeding|stroke|fever|headache|migraine|dizzy|dizziness|pain|symptom|cough|sore throat|cold|flu|vomit|vomiting|nausea|diarrhea|rash|fatigue|weakness|numb|numbness|seizure|palpitation|palpitations|heart racing|stomach pain|abdominal pain|back pain|child|baby|pediatric|paediatric|not feeling well|feel unwell|feeling unwell)\\b/.test(\n    msg\n  );\n\nconst startsCancellation =\n  action === \"cancel_appointment\" ||\n  /\\b(cancel|cancelled|cancellation)\\b/.test(\n    msg\n  );\n\nconst startsReschedule =\n  action === \"reschedule_appointment\" ||\n  /\\b(reschedule|rescheduled|move appointment|change appointment|change my appointment|move my appointment)\\b/.test(\n    msg\n  );\n\nconst providedAppointmentId =\n  String(\n    item.appointmentId ||\n    extractAppointmentId(msg) ||\n    \"\"\n  ).trim();\n\nconst providedNewDate =\n  String(\n    item.newAppointmentDate ||\n    \"\"\n  ).trim() ||\n  extractDate(msg);\n\nconst providedNewTime =\n  String(\n    item.newAppointmentTime ||\n    \"\"\n  ).trim() ||\n  extractFlexibleTime(msg);\n\nlet route =\n  \"general\";\n\n\n/*\n * ==================================================\n * CANCEL / RESCHEDULE STATE MACHINE\n * ==================================================\n *\n * This is intentionally separate from bookingStates\n * so the proven booking flow is not overwritten.\n */\n\n/*\n * ==================================================\n * FRESH CANCEL / RESCHEDULE REQUESTS\n * ==================================================\n *\n * An explicit command containing an appointment ID\n * always starts a fresh operation, even if an older\n * operation state was left behind by a previous\n * interrupted workflow execution.\n */\n\n/*\n * Fresh cancellation request.\n */\nif (\n  startsCancellation &&\n  (\n    operationState.stage === \"idle\" ||\n    providedAppointmentId\n  )\n) {\n  /*\n   * Cancel any stale booking conversation state.\n   * Appointment management takes priority.\n   */\n  state = {\n    ...state,\n    stage: \"idle\",\n    selectedDoctor: null,\n    selectedDate: \"\",\n    displayDate: \"\",\n    dayName: \"\",\n    selectedTime: \"\",\n    availableSlots: [],\n    availabilitySummaryRequested: false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  operationState = {\n    type: \"cancel\",\n\n    stage:\n      providedAppointmentId\n        ? \"lookup\"\n        : \"cancel_awaiting_id\",\n\n    appointmentId:\n      providedAppointmentId,\n\n    newAppointmentDate: \"\",\n\n    newAppointmentTime: \"\",\n\n    cancellationReason:\n      String(\n        item.cancellationReason ||\n        \"\"\n      ).trim(),\n  };\n\n  saveOperationState();\n\n  route =\n    providedAppointmentId\n      ? \"appointment_lookup\"\n      : \"operation_prompt\";\n}\n\n/*\n * Fresh reschedule request.\n */\nelse if (\n  startsReschedule &&\n  (\n    operationState.stage === \"idle\" ||\n    providedAppointmentId\n  )\n) {\n  /*\n   * Reset stale normal-booking state.\n   * Rescheduling is a different operation.\n   */\n  state = {\n    ...state,\n    stage: \"idle\",\n    selectedDoctor: null,\n    selectedDate: \"\",\n    displayDate: \"\",\n    dayName: \"\",\n    selectedTime: \"\",\n    availableSlots: [],\n    availabilitySummaryRequested: false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  operationState = {\n    type: \"reschedule\",\n\n    stage:\n      providedAppointmentId\n        ? \"lookup\"\n        : \"reschedule_awaiting_id\",\n\n    appointmentId:\n      providedAppointmentId,\n\n    newAppointmentDate:\n      providedNewDate,\n\n    newAppointmentTime:\n      providedNewTime,\n\n    cancellationReason: \"\",\n  };\n\n  saveOperationState();\n\n  route =\n    providedAppointmentId\n      ? \"appointment_lookup\"\n      : \"operation_prompt\";\n}\n\n/*\n * Waiting for cancellation appointment number.\n */\nelse if (\n  operationState.stage ===\n    \"cancel_awaiting_id\"\n) {\n  const id =\n    providedAppointmentId ||\n    extractAppointmentId(msg);\n\n  if (id) {\n    operationState.appointmentId =\n      id;\n\n    operationState.stage =\n      \"lookup\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_lookup\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for reschedule appointment number.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_id\"\n) {\n  const id =\n    providedAppointmentId ||\n    extractAppointmentId(msg);\n\n  if (id) {\n    operationState.appointmentId =\n      id;\n\n    if (providedNewDate) {\n      operationState.newAppointmentDate =\n        providedNewDate;\n    }\n\n    if (providedNewTime) {\n      operationState.newAppointmentTime =\n        providedNewTime;\n    }\n\n    operationState.stage =\n      \"lookup\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_lookup\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Cancellation confirmation.\n */\nelse if (\n  operationState.stage ===\n    \"cancel_awaiting_confirmation\"\n) {\n  if (\n    isYes(msg)\n  ) {\n    operationState.stage =\n      \"cancel_executing\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_cancel\";\n  } else if (\n    isNo(msg)\n  ) {\n    clearOperationState();\n\n    route =\n      \"operation_prompt\";\n\n    item.operationPrompt =\n      \"Okay, I will not cancel that appointment.\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for new reschedule date.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_date\"\n) {\n  const date =\n    providedNewDate ||\n    extractDate(msg);\n\n  if (date) {\n    operationState.newAppointmentDate =\n      date;\n\n    const time =\n      providedNewTime ||\n      extractFlexibleTime(msg);\n\n    if (time) {\n      operationState.newAppointmentTime =\n        time;\n\n      operationState.stage =\n        \"reschedule_executing\";\n\n      saveOperationState();\n\n      route =\n        \"appointment_reschedule\";\n    } else {\n      /*\n       * Date was selected but no time was supplied.\n       * Query the doctor's configured schedule plus\n       * current DB bookings before showing time buttons.\n       */\n      operationState.newAppointmentTime =\n        \"\";\n\n      operationState.stage =\n        \"reschedule_loading_slots\";\n\n      saveOperationState();\n\n      route =\n        \"reschedule_slots\";\n    }\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for new reschedule time.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_time\"\n) {\n  const time =\n    providedNewTime ||\n    extractFlexibleTime(msg);\n\n  if (time) {\n    operationState.newAppointmentTime =\n      time;\n\n    operationState.stage =\n      \"reschedule_executing\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_reschedule\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * ==================================================\n * SYMPTOM -> DOCTOR BOOKING HANDOFF\n * ==================================================\n *\n * The symptom recommendation flow stores one real\n * doctor in bookingStates and waits for the patient\n * to accept or decline the suggested booking.\n *\n * Text and voice both arrive here after normalization.\n */\nelse if (\n  state.stage ===\n    \"awaiting_symptom_booking_confirmation\"\n) {\n  const acceptsRecommendation =\n    isYes(msg) ||\n    /\\b(yes please|book it|book with (?:this|that|the) doctor|book (?:this|that) doctor|i(?:'d| would) like to book|make the appointment|schedule it|go ahead and book)\\b/i.test(\n      originalMessage\n    );\n\n  const declinesRecommendation =\n    isNo(msg) ||\n    /\\b(not now|maybe later|no thanks|no thank you|do not book|don't book)\\b/i.test(\n      originalMessage\n    );\n\n  if (\n    acceptsRecommendation &&\n    state.selectedDoctor\n  ) {\n    state.stage =\n      \"awaiting_date\";\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else if (\n    declinesRecommendation\n  ) {\n    state = {\n      ...state,\n\n      stage:\n        \"idle\",\n\n      selectedDoctor:\n        null,\n\n      selectedDate:\n        \"\",\n\n      displayDate:\n        \"\",\n\n      dayName:\n        \"\",\n\n      selectedTime:\n        \"\",\n\n      availableSlots:\n        [],\n\n      symptomContext:\n        null,\n    };\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    item.symptomFollowupPrompt =\n      \"Okay, I will not start an appointment booking. If your symptoms worsen or you develop urgent warning signs, seek prompt in-person medical care. You can ask me about another doctor or start a booking whenever you are ready.\";\n\n    route =\n      \"symptom\";\n  } else {\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    const doctorName =\n      state.selectedDoctor?.doctorName ||\n      state.selectedDoctor?.name ||\n      \"the recommended doctor\";\n\n    item.symptomFollowupPrompt =\n      `Would you like to book an appointment with ${doctorName}? Please say yes to continue to date selection, or no to continue without booking.`;\n\n    route =\n      \"symptom\";\n  }\n}\n\n/*\n * ==================================================\n * 1. STRUCTURED UI: DOCTOR SELECTED\n * ==================================================\n *\n * Existing Doctor Card button.\n */\n\nelse if (\n  action ===\n    \"select_doctor\" ||\n  action ===\n    \"has_doctor\"\n) {\n  if (\n    selectedDoctor\n  ) {\n    state.selectedDoctor =\n      selectedDoctor;\n\n    state.stage =\n      \"awaiting_date\";\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    route =\n      \"booking_doctors\";\n  }\n}\n\n/*\n * ==================================================\n * 2. STRUCTURED UI: DATE SELECTED\n * ==================================================\n *\n * Calendar click.\n */\n\nelse if (\n  action ===\n  \"select_date\"\n) {\n  const date =\n    String(\n      item.selectedDate ||\n        \"\"\n    );\n\n  state.selectedDate =\n    date;\n\n  state.displayDate =\n    item.displayDate ||\n    date;\n\n  state.dayName =\n    item.dayName ||\n    (\n      date\n        ? dayName(\n            date\n          )\n        : \"\"\n    );\n\n  state.selectedTime =\n    \"\";\n\n  state.availableSlots =\n    [];\n\n  state.availabilitySummaryRequested =\n    false;\n\n  state.stage =\n    \"awaiting_time\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_slots\";\n}\n\n/*\n * ==================================================\n * 3. STRUCTURED UI: TIME CONFIRMATION\n * ==================================================\n *\n * Time selection from the UI appointment\n * confirmation flow.\n */\n\nelse if (\n  action ===\n  \"confirm_booking\"\n) {\n  state.selectedTime =\n    String(\n      item.selectedTime ||\n        \"\"\n    );\n\n  state.stage =\n    \"confirming\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_confirm\";\n}\n\n/*\n * ==================================================\n * 4. FRESH BOOKING\n * ==================================================\n *\n * Reset stale doctor/date/time values.\n *\n * Works for BOTH text and voice.\n */\n\nelse if (\n  freshBookingRequest\n) {\n  state = {\n    stage:\n      \"idle\",\n\n    currentDoctors:\n      Array.isArray(\n        state.currentDoctors\n      )\n        ? state.currentDoctors\n        : [],\n\n    selectedDoctor:\n      null,\n\n    selectedDate:\n      \"\",\n\n    displayDate:\n      \"\",\n\n    dayName:\n      \"\",\n\n    selectedTime:\n      \"\",\n\n    availableSlots:\n      [],\n\n    availabilitySummaryRequested:\n      false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_doctors\";\n}\n\n/*\n * ==================================================\n * 5. DOCTOR LIST REQUEST\n * ==================================================\n */\n\nelse if (\n  asksForDoctorList\n) {\n  state = {\n    ...state,\n\n    stage:\n      \"idle\",\n\n    selectedDoctor:\n      null,\n\n    selectedDate:\n      \"\",\n\n    displayDate:\n      \"\",\n\n    dayName:\n      \"\",\n\n    selectedTime:\n      \"\",\n\n    availableSlots:\n      [],\n\n    availabilitySummaryRequested:\n      false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"doctors\";\n}\n\n/*\n * ==================================================\n * 6. WAITING FOR DOCTOR\n * ==================================================\n *\n * CRITICAL:\n *\n * Ordinals are interpreted as doctors ONLY\n * while stage === awaiting_doctor.\n *\n * Therefore:\n *\n * \"Go with the first doctor\"\n *          ↓\n * doctor 1\n *\n * But after doctor selection:\n *\n * \"Fifth of October\"\n *\n * will NOT be interpreted as doctor 5.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_doctor\"\n) {\n  const doctor =\n    matchDoctor(\n      msg,\n      state.currentDoctors\n    );\n\n  if (\n    doctor\n  ) {\n    state.selectedDoctor =\n      doctor;\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    state.stage =\n      \"awaiting_date\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    route =\n      \"booking_doctors\";\n  }\n}\n\n/*\n * ==================================================\n * 7. GENERIC BOOKING START\n * ==================================================\n */\n\nelse if (\n  startsBooking &&\n  !startsCancellation &&\n  !startsReschedule &&\n  operationState.stage === \"idle\" &&\n  state.stage === \"idle\"\n) {\n  route =\n    \"booking_doctors\";\n}\n\n/*\n * ==================================================\n * 8. WAITING FOR DATE\n * ==================================================\n *\n * Works for BOTH text and voice:\n *\n * Fifth of October\n * October fifth\n * 5th October\n * October 5\n * today\n * tomorrow\n *\n * Clicking the calendar still works through\n * action === select_date.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_date\"\n) {\n  const naturalDate =\n    extractDate(\n      msg\n    );\n\n  if (\n    naturalDate\n  ) {\n    state.selectedDate =\n      naturalDate;\n\n    state.displayDate =\n      naturalDate;\n\n    state.dayName =\n      dayName(\n        naturalDate\n      );\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    state.stage =\n      \"awaiting_time\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_slots\";\n  } else {\n    /*\n     * Example:\n     *\n     * What dates and times are available?\n     */\n    state.availabilitySummaryRequested =\n      asksAvailability;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  }\n}\n\n/*\n * ==================================================\n * 9. WAITING FOR TIME\n * ==================================================\n *\n * This is also the stage that Format Booking Result\n * MUST restore after a failed booking.\n *\n * Examples:\n *\n * First one\n * Go with the first one\n * Second one\n * Then go with the second one\n * Second time slot\n * 6 PM\n *\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_time\"\n) {\n  const naturalTime =\n    extractTime(\n      msg,\n      state.availableSlots\n    );\n\n  if (\n    naturalTime\n  ) {\n    /*\n     * Preserve the selected slot.\n     */\n    state.selectedTime =\n      naturalTime;\n\n    /*\n     * Immediately attempt booking.\n     *\n     * We do not need an extra:\n     *\n     * \"Can you confirm?\"\n     *\n     * turn.\n     */\n    state.stage =\n      \"confirming\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  } else {\n    /*\n     * Could not understand the requested time.\n     *\n     * Keep state intact and show times again.\n     */\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_slots\";\n  }\n}\n\n/*\n * ==================================================\n * 10. CONFIRMING\n * ==================================================\n *\n * Normally the database booking happens immediately\n * after entering this state.\n *\n * This fallback prevents random messages from\n * destroying the booking context if another request\n * arrives before result-state handling finishes.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"confirming\"\n) {\n  /*\n   * If user explicitly gives another time while\n   * we're still marked confirming, allow recovery.\n   */\n  const alternativeTime =\n    extractTime(\n      msg,\n      state.availableSlots\n    );\n\n  if (\n    alternativeTime\n  ) {\n    state.selectedTime =\n      alternativeTime;\n\n    state.stage =\n      \"confirming\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  } else {\n    /*\n     * Keep context rather than falling to Gemini/general.\n     */\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  }\n}\n\n/*\n * ==================================================\n * 11. NON-BOOKING ROUTES\n * ==================================================\n */\n\nelse if (\n  /\\b(doctor|doctors|specialist|cardiologist|neurologist|pediatric|gp|general practitioner)\\b/.test(\n    msg\n  )\n) {\n  route =\n    \"doctors\";\n}\n\nelse if (\n  asksFAQ\n) {\n  route =\n    \"faq\";\n}\n\nelse if (\n  asksSymptoms\n) {\n  route =\n    \"symptom\";\n}\n\n/*\n * ==================================================\n * OUTPUT\n * ==================================================\n */\n\nconst out = {\n  ...item,\n\n  /*\n   * Original user text/STT transcript.\n   */\n  normalizedMessage:\n    originalMessage,\n\n  route,\n\n  voiceMode,\n\n  state,\n\n  selectedDoctor:\n    state.selectedDoctor ||\n    selectedDoctor ||\n    null,\n\n  selectedDate:\n    state.selectedDate ||\n    item.selectedDate ||\n    \"\",\n\n  displayDate:\n    state.displayDate ||\n    item.displayDate ||\n    \"\",\n\n  dayName:\n    state.dayName ||\n    item.dayName ||\n    \"\",\n\n  selectedTime:\n    state.selectedTime ||\n    item.selectedTime ||\n    \"\",\n\n  operationState,\n\n  appointmentId:\n    operationState.appointmentId ||\n    item.appointmentId ||\n    \"\",\n\n  newAppointmentDate:\n    operationState.newAppointmentDate ||\n    item.newAppointmentDate ||\n    \"\",\n\n  newAppointmentTime:\n    operationState.newAppointmentTime ||\n    item.newAppointmentTime ||\n    \"\",\n\n  cancellationReason:\n    operationState.cancellationReason ||\n    item.cancellationReason ||\n    \"\",\n\n  operationPrompt:\n    item.operationPrompt ||\n    \"\",\n};\n\nreturn [\n  {\n    json:\n      out,\n  },\n];"
+        "jsCode": "const item = $json;\n\nconst sessionId =\n  item.sessionId || \"default\";\n\nconst voiceMode =\n  item.voiceMode === true ||\n  item.requestVoiceReply === true;\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (!store.bookingStates) {\n  store.bookingStates = {};\n}\n\nif (!store.appointmentActionStates) {\n  store.appointmentActionStates = {};\n}\n\nlet state =\n  store.bookingStates[\n    sessionId\n  ] || {\n    stage: \"idle\",\n  };\n\nlet operationState =\n  store.appointmentActionStates[\n    sessionId\n  ] || {\n    type: \"\",\n    stage: \"idle\",\n    appointmentId: \"\",\n    newAppointmentDate: \"\",\n    newAppointmentTime: \"\",\n    cancellationReason: \"\",\n  };\n\n/*\n * ==================================================\n * INPUT NORMALIZATION\n * ==================================================\n *\n * Text:\n *   item.message\n *\n * Voice:\n *   STT output should already be placed into\n *   normalizedMessage/message/transcript.\n *\n * Both then use the same NLP/state logic.\n * ==================================================\n */\n\nconst originalMessage =\n  String(\n    item.normalizedMessage ||\n      item.message ||\n      item.transcript ||\n      \"\"\n  ).trim();\n\nconst msg =\n  originalMessage\n    .toLowerCase()\n    .replace(/[,?.!]/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n\n/*\n * ==================================================\n * HELPERS\n * ==================================================\n */\n\nfunction parseDoctor(raw) {\n  if (!raw) {\n    return null;\n  }\n\n  if (\n    typeof raw ===\n    \"object\"\n  ) {\n    return raw;\n  }\n\n  try {\n    return JSON.parse(\n      raw\n    );\n  } catch {\n    return null;\n  }\n}\n\nfunction isoLocal(date) {\n  const year =\n    date.getFullYear();\n\n  const month =\n    String(\n      date.getMonth() + 1\n    ).padStart(\n      2,\n      \"0\"\n    );\n\n  const day =\n    String(\n      date.getDate()\n    ).padStart(\n      2,\n      \"0\"\n    );\n\n  return `${year}-${month}-${day}`;\n}\n\nfunction dayName(\n  dateString\n) {\n  if (!dateString) {\n    return \"\";\n  }\n\n  const date =\n    new Date(\n      `${dateString}T12:00:00`\n    );\n\n  return [\n    \"sunday\",\n    \"monday\",\n    \"tuesday\",\n    \"wednesday\",\n    \"thursday\",\n    \"friday\",\n    \"saturday\",\n  ][date.getDay()];\n}\n\n/*\n * ==================================================\n * NATURAL DATE PARSER\n * ==================================================\n *\n * Supports BOTH text and voice:\n *\n * today\n * tomorrow\n * 2026-10-05\n * October 5\n * October fifth\n * October 5th\n * fifth October\n * fifth of October\n * 5 October\n * 5th of October\n *\n * Also supports:\n * twenty first of October\n * October twenty first\n * etc.\n * ==================================================\n */\n\nfunction extractDate(\n  text\n) {\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /,/g,\n        \" \"\n      )\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const now =\n    new Date();\n\n  now.setHours(\n    0,\n    0,\n    0,\n    0\n  );\n\n  /*\n   * TODAY\n   */\n  if (\n    /\\btoday\\b/.test(\n      normalized\n    )\n  ) {\n    return isoLocal(\n      now\n    );\n  }\n\n  /*\n   * TOMORROW\n   */\n  if (\n    /\\btomorrow\\b/.test(\n      normalized\n    )\n  ) {\n    const tomorrow =\n      new Date(\n        now\n      );\n\n    tomorrow.setDate(\n      tomorrow.getDate() +\n        1\n    );\n\n    return isoLocal(\n      tomorrow\n    );\n  }\n\n  /*\n   * ISO format:\n   * 2026-10-05\n   */\n  const iso =\n    normalized.match(\n      /\\b(20\\d{2}-\\d{2}-\\d{2})\\b/\n    );\n\n  if (iso) {\n    return iso[1];\n  }\n\n  const months = {\n    january: 0,\n    february: 1,\n    march: 2,\n    april: 3,\n    may: 4,\n    june: 5,\n    july: 6,\n    august: 7,\n    september: 8,\n    october: 9,\n    november: 10,\n    december: 11,\n  };\n\n  const ordinalWords = {\n    first: 1,\n    second: 2,\n    third: 3,\n    fourth: 4,\n    fifth: 5,\n    sixth: 6,\n    seventh: 7,\n    eighth: 8,\n    ninth: 9,\n    tenth: 10,\n    eleventh: 11,\n    twelfth: 12,\n    thirteenth: 13,\n    fourteenth: 14,\n    fifteenth: 15,\n    sixteenth: 16,\n    seventeenth: 17,\n    eighteenth: 18,\n    nineteenth: 19,\n    twentieth: 20,\n\n    \"twenty first\": 21,\n    \"twenty-first\": 21,\n\n    \"twenty second\": 22,\n    \"twenty-second\": 22,\n\n    \"twenty third\": 23,\n    \"twenty-third\": 23,\n\n    \"twenty fourth\": 24,\n    \"twenty-fourth\": 24,\n\n    \"twenty fifth\": 25,\n    \"twenty-fifth\": 25,\n\n    \"twenty sixth\": 26,\n    \"twenty-sixth\": 26,\n\n    \"twenty seventh\": 27,\n    \"twenty-seventh\": 27,\n\n    \"twenty eighth\": 28,\n    \"twenty-eighth\": 28,\n\n    \"twenty ninth\": 29,\n    \"twenty-ninth\": 29,\n\n    thirtieth: 30,\n\n    \"thirty first\": 31,\n    \"thirty-first\": 31,\n  };\n\n  function resolveDay(\n    value\n  ) {\n    if (!value) {\n      return 0;\n    }\n\n    const clean =\n      String(value)\n        .toLowerCase()\n        .trim();\n\n    /*\n     * 5\n     * 5th\n     * 21st\n     */\n    const numeric =\n      clean.match(\n        /^(\\d{1,2})(?:st|nd|rd|th)?$/\n      );\n\n    if (numeric) {\n      return Number(\n        numeric[1]\n      );\n    }\n\n    return (\n      ordinalWords[\n        clean\n      ] || 0\n    );\n  }\n\n  const monthPattern =\n    Object.keys(\n      months\n    ).join(\"|\");\n\n  const ordinalPattern =\n    Object.keys(\n      ordinalWords\n    )\n      .sort(\n        (a, b) =>\n          b.length -\n          a.length\n      )\n      .map(\n        (word) =>\n          word.replace(\n            /[-\\s]+/g,\n            \"[-\\\\s]+\"\n          )\n      )\n      .join(\"|\");\n\n  /*\n   * fifth of October\n   * fifth October\n   * 5th of October\n   * 5 October\n   */\n  const dayMonth =\n    new RegExp(\n      `(?:the\\\\s+)?(${ordinalPattern}|\\\\d{1,2}(?:st|nd|rd|th)?)\\\\s+(?:of\\\\s+)?(${monthPattern})(?:\\\\s+(20\\\\d{2}))?`,\n      \"i\"\n    );\n\n  /*\n   * October fifth\n   * October 5th\n   * October 5\n   */\n  const monthDay =\n    new RegExp(\n      `(${monthPattern})\\\\s+(?:the\\\\s+)?(${ordinalPattern}|\\\\d{1,2}(?:st|nd|rd|th)?)(?:\\\\s+(20\\\\d{2}))?`,\n      \"i\"\n    );\n\n  let match =\n    normalized.match(\n      dayMonth\n    );\n\n  let day =\n    0;\n\n  let month =\n    -1;\n\n  let year =\n    now.getFullYear();\n\n  let explicitYear =\n    false;\n\n  if (match) {\n    day =\n      resolveDay(\n        match[1]\n      );\n\n    month =\n      months[\n        match[2]\n          .toLowerCase()\n      ];\n\n    if (\n      match[3]\n    ) {\n      year =\n        Number(\n          match[3]\n        );\n\n      explicitYear =\n        true;\n    }\n  } else {\n    match =\n      normalized.match(\n        monthDay\n      );\n\n    if (match) {\n      month =\n        months[\n          match[1]\n            .toLowerCase()\n        ];\n\n      day =\n        resolveDay(\n          match[2]\n        );\n\n      if (\n        match[3]\n      ) {\n        year =\n          Number(\n            match[3]\n          );\n\n        explicitYear =\n          true;\n      }\n    }\n  }\n\n  if (\n    !day ||\n    month < 0\n  ) {\n    return \"\";\n  }\n\n  let candidate =\n    new Date(\n      year,\n      month,\n      day\n    );\n\n  candidate.setHours(\n    0,\n    0,\n    0,\n    0\n  );\n\n  /*\n   * Reject impossible dates:\n   *\n   * February 31\n   * April 31\n   * etc.\n   */\n  if (\n    candidate.getDate() !==\n      day ||\n    candidate.getMonth() !==\n      month\n  ) {\n    return \"\";\n  }\n\n  /*\n   * If no year was given and the date\n   * already passed this year, use next year.\n   */\n  if (\n    !explicitYear &&\n    candidate <\n      now\n  ) {\n    candidate =\n      new Date(\n        year + 1,\n        month,\n        day\n      );\n  }\n\n  return isoLocal(\n    candidate\n  );\n}\n\n/*\n * ==================================================\n * ORDINAL PARSER\n * ==================================================\n *\n * Context decides what the ordinal means.\n *\n * awaiting_doctor:\n *   first one = doctor 1\n *\n * awaiting_time:\n *   first one = time slot 1\n *\n * awaiting_date:\n *   date parser runs instead, so\n *   \"fifth of October\" is NOT doctor 5.\n * ==================================================\n */\n\nfunction getOrdinalIndex(\n  text\n) {\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const patterns = [\n    {\n      pattern:\n        /\\b(first one|first|1st|number one|doctor one|dr one|slot one|time one)\\b/,\n      index: 0,\n    },\n\n    {\n      pattern:\n        /\\b(second one|second|2nd|number two|doctor two|dr two|slot two|time two)\\b/,\n      index: 1,\n    },\n\n    {\n      pattern:\n        /\\b(third one|third|3rd|number three|doctor three|dr three|slot three|time three)\\b/,\n      index: 2,\n    },\n\n    {\n      pattern:\n        /\\b(fourth one|fourth|4th|number four|doctor four|dr four|slot four|time four)\\b/,\n      index: 3,\n    },\n\n    {\n      pattern:\n        /\\b(fifth one|fifth|5th|number five|doctor five|dr five|slot five|time five)\\b/,\n      index: 4,\n    },\n\n    {\n      pattern:\n        /\\b(sixth one|sixth|6th|number six|doctor six|dr six|slot six|time six)\\b/,\n      index: 5,\n    },\n  ];\n\n  for (\n    const entry\n    of patterns\n  ) {\n    if (\n      entry.pattern.test(\n        normalized\n      )\n    ) {\n      return entry.index;\n    }\n  }\n\n  return -1;\n}\n\n/*\n * ==================================================\n * DOCTOR MATCHING\n * ==================================================\n */\n\nfunction matchDoctor(\n  text,\n  doctors\n) {\n  if (\n    !Array.isArray(\n      doctors\n    ) ||\n    doctors.length === 0\n  ) {\n    return null;\n  }\n\n  /*\n   * Ordinal selection:\n   *\n   * first doctor\n   * first one\n   * go with the first one\n   */\n  const ordinal =\n    getOrdinalIndex(\n      text\n    );\n\n  if (\n    ordinal >= 0 &&\n    doctors[ordinal]\n  ) {\n    return doctors[\n      ordinal\n    ];\n  }\n\n  /*\n   * Match doctor names:\n   *\n   * Chamodi\n   * Dr Chamodi\n   * Chamodi Bandara\n   */\n  let bestDoctor =\n    null;\n\n  let bestScore =\n    0;\n\n  for (\n    const doctor\n    of doctors\n  ) {\n    const doctorName =\n      String(\n        doctor.doctorName ||\n          doctor.name ||\n          \"\"\n      )\n        .toLowerCase()\n        .replace(\n          /\\bdoctor\\b/g,\n          \"\"\n        )\n        .replace(\n          /\\bdr\\.?\\b/g,\n          \"\"\n        )\n        .trim();\n\n    const nameParts =\n      doctorName\n        .split(\n          /\\s+/\n        )\n        .filter(\n          (part) =>\n            part.length >\n            2\n        );\n\n    const score =\n      nameParts.filter(\n        (part) =>\n          text.includes(\n            part\n          )\n      ).length;\n\n    if (\n      score >\n      bestScore\n    ) {\n      bestScore =\n        score;\n\n      bestDoctor =\n        doctor;\n    }\n  }\n\n  return bestScore > 0\n    ? bestDoctor\n    : null;\n}\n\n/*\n * ==================================================\n * TIME MATCHING\n * ==================================================\n *\n * Supports:\n *\n * first\n * first one\n * first time\n * first slot\n *\n * second\n * second one\n * second time slot\n *\n * 5 pm\n * 5:00 pm\n *\n * exact slot text\n * ==================================================\n */\n\nfunction extractTime(\n  text,\n  slots\n) {\n  if (\n    !Array.isArray(\n      slots\n    ) ||\n    slots.length === 0\n  ) {\n    return \"\";\n  }\n\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const ordinal =\n    getOrdinalIndex(\n      normalized\n    );\n\n  if (\n    ordinal >= 0 &&\n    slots[ordinal]\n  ) {\n    const candidate =\n      slots[ordinal];\n\n    if (\n      typeof candidate === \"object\" &&\n      candidate?.booked === true\n    ) {\n      return \"\";\n    }\n\n    return String(\n      candidate?.label ||\n      candidate\n    );\n  }\n\n  for (\n    const slot\n    of slots\n  ) {\n    if (\n      typeof slot === \"object\" &&\n      slot?.booked === true\n    ) {\n      continue;\n    }\n\n    const label =\n      String(\n        slot?.label ||\n          slot\n      );\n\n    const lowerLabel =\n      label\n        .toLowerCase();\n\n    const startingTime =\n      lowerLabel\n        .split(\"-\")[0]\n        .trim();\n\n    if (\n      normalized.includes(\n        lowerLabel\n      ) ||\n      normalized.includes(\n        startingTime\n      )\n    ) {\n      return label;\n    }\n  }\n\n  const spokenTime =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (\n    spokenTime\n  ) {\n    const hour =\n      spokenTime[1];\n\n    const minutes =\n      spokenTime[2] ||\n      \"00\";\n\n    const meridiem =\n      spokenTime[3]\n        .toUpperCase();\n\n    const requested =\n      `${hour}:${minutes} ${meridiem}`;\n\n    for (\n      const slot\n      of slots\n    ) {\n      if (\n        typeof slot === \"object\" &&\n        slot?.booked === true\n      ) {\n        continue;\n      }\n\n      const label =\n        String(\n          slot?.label ||\n            slot\n        );\n\n      if (\n        label\n          .toLowerCase()\n          .includes(\n            requested\n              .toLowerCase()\n          )\n      ) {\n        return label;\n      }\n    }\n  }\n\n  return \"\";\n}\n\n\n/*\n * ==================================================\n * CANCEL / RESCHEDULE HELPERS\n * ==================================================\n */\n\nfunction extractAppointmentId(\n  text\n) {\n  const normalized =\n    String(text || \"\")\n      .toLowerCase()\n      .replace(/[,?.!]/g, \" \")\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n  const explicit =\n    normalized.match(\n      /\\b(?:appointment|appointment number|appointment id|reference|reference number|booking|booking number)\\s*(?:number|id|no\\.?)?\\s*#?\\s*(\\d+)\\b/i\n    );\n\n  if (explicit) {\n    return explicit[1];\n  }\n\n  if (\n    operationState.stage ===\n      \"cancel_awaiting_id\" ||\n    operationState.stage ===\n      \"reschedule_awaiting_id\"\n  ) {\n    const standalone =\n      normalized.match(\n        /^\\s*#?\\s*(\\d+)\\s*$/\n      );\n\n    if (standalone) {\n      return standalone[1];\n    }\n  }\n\n  return \"\";\n}\n\nfunction extractFlexibleTime(\n  text\n) {\n  let normalized =\n    String(text || \"\")\n      .toLowerCase()\n      .replace(/[,?.!]/g, \" \")\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n  const wordHours = {\n    one: \"1\",\n    two: \"2\",\n    three: \"3\",\n    four: \"4\",\n    five: \"5\",\n    six: \"6\",\n    seven: \"7\",\n    eight: \"8\",\n    nine: \"9\",\n    ten: \"10\",\n    eleven: \"11\",\n    twelve: \"12\",\n  };\n\n  normalized =\n    normalized.replace(\n      /\\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s*(am|pm)\\b/g,\n      (_, word, meridiem) =>\n        `${wordHours[word]} ${meridiem}`\n    );\n\n  const range =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\s*(?:-|to)\\s*(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (range) {\n    const startMinutes =\n      range[2] || \"00\";\n\n    const endMinutes =\n      range[5] || \"00\";\n\n    return `${Number(range[1])}:${startMinutes} ${range[3].toUpperCase()} - ${Number(range[4])}:${endMinutes} ${range[6].toUpperCase()}`;\n  }\n\n  const single =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (single) {\n    const minutes =\n      single[2] || \"00\";\n\n    return `${Number(single[1])}:${minutes} ${single[3].toUpperCase()}`;\n  }\n\n  return \"\";\n}\n\nfunction isYes(\n  text\n) {\n  return /^(yes|yeah|yep|confirm|confirmed|please do|do it|go ahead|sure|okay|ok)$/i.test(\n    String(text || \"\").trim()\n  );\n}\n\nfunction isNo(\n  text\n) {\n  return /^(no|nope|cancel that|stop|never mind|nevermind|do not|don't)$/i.test(\n    String(text || \"\").trim()\n  );\n}\n\nfunction saveOperationState() {\n  store.appointmentActionStates[\n    sessionId\n  ] = operationState;\n}\n\nfunction clearOperationState() {\n  delete store\n    .appointmentActionStates[\n      sessionId\n    ];\n\n  operationState = {\n    type: \"\",\n    stage: \"idle\",\n    appointmentId: \"\",\n    newAppointmentDate: \"\",\n    newAppointmentTime: \"\",\n    cancellationReason: \"\",\n  };\n}\n\n/*\n * ==================================================\n * INTENT / ACTION FLAGS\n * ==================================================\n */\n\nconst action =\n  String(\n    item.action ||\n      \"\"\n  )\n    .toLowerCase()\n    .trim();\n\nconst selectedDoctor =\n  parseDoctor(\n    item.selectedDoctor\n  );\n\nconst asksForDoctorList =\n  /\\b(available doctors|available doctor|who are the doctors|list doctors|show doctors|doctors available)\\b/.test(\n    msg\n  );\n\n/*\n * A bare mention of the word \"appointment\" is NOT a booking request.\n *\n * This prevents informational questions such as:\n *   \"How early should I arrive for my appointment?\"\n * from incorrectly starting a new booking flow.\n */\nconst startsBooking =\n  (\n    /\\b(book|booking|schedule|reserve)\\b/.test(\n      msg\n    ) &&\n    /\\b(appointment|consultation|doctor|dr)\\b/.test(\n      msg\n    )\n  ) ||\n  /\\bnew appointment\\b/.test(\n    msg\n  );\n\n/*\n * A new general booking request.\n *\n * Examples:\n *\n * Can I book an appointment?\n * I want to book an appointment\n * Book an appointment\n * Schedule an appointment\n */\nconst freshBookingRequest =\n  startsBooking &&\n  /\\b(can i book|i want to book|i would like to book|book an appointment|make an appointment|schedule an appointment|new appointment)\\b/.test(\n    msg\n  ) &&\n  !selectedDoctor;\n\n/*\n * Availability language.\n */\nconst asksAvailability =\n  /\\b(available dates|available date|available days|what days|which days|what dates|which dates|available times|available time|what times|which times|when is|when are|availability|show availability|tell me.*available)\\b/.test(\n    msg\n  );\n\n/*\n * Verified administrative / medical-center information.\n *\n * These questions should go to RAG even while a booking,\n * cancellation, or reschedule conversation is active.\n */\nconst asksFAQ =\n  /\\b(hour|hours|open|opening|close|closed|closing|location|address|contact|phone|email|fee|fees|cost|price|insurance|walk-in|walk in|service|services|laboratory|lab|blood test|blood tests|fast|fasting|sample|samples|report|reports|pharmacy|parking|wheelchair|accessible|accessibility|landmark|holiday|holidays|sunday|privacy|arrival|arrive|check in|check-in|bring|identification)\\b/.test(\n    msg\n  );\n\n/*\n * Appointment-policy questions are informational, not actions.\n *\n * Examples:\n *   \"How early should I arrive for my appointment?\"\n *   \"What should I bring to my appointment?\"\n *   \"What is your cancellation policy?\"\n *   \"Can I reschedule an appointment?\"\n *   \"How do appointments work?\"\n */\nconst asksAppointmentPolicyFAQ =\n  /\\b(how early|when should i arrive|what should i bring|what do i bring|do i need (?:an )?(?:id|identification)|appointment policy|appointment policies|cancellation policy|cancelation policy|rescheduling policy|reschedule policy|appointment rules|how do appointments work|how does an appointment work|before (?:my|the|an) appointment|can i reschedule (?:an|the) appointment|how can i reschedule (?:an|the) appointment|can i cancel (?:an|the) appointment|how can i cancel (?:an|the) appointment)\\b/.test(\n    msg\n  );\n\nconst asksInformationalFAQ =\n  asksFAQ ||\n  asksAppointmentPolicyFAQ;\n\nconst asksSymptoms =\n  /\\b(chest pain|chest tightness|shortness of breath|difficulty breathing|breath|bleeding|stroke|fever|headache|migraine|dizzy|dizziness|pain|symptom|cough|sore throat|cold|flu|vomit|vomiting|nausea|diarrhea|rash|fatigue|weakness|numb|numbness|seizure|palpitation|palpitations|heart racing|stomach pain|abdominal pain|back pain|child|baby|pediatric|paediatric|not feeling well|feel unwell|feeling unwell)\\b/.test(\n    msg\n  );\n\nconst startsCancellation =\n  action === \"cancel_appointment\" ||\n  /\\b(cancel|cancelled|cancellation)\\b/.test(\n    msg\n  );\n\nconst startsReschedule =\n  action === \"reschedule_appointment\" ||\n  /\\b(reschedule|rescheduled|move appointment|change appointment|change my appointment|move my appointment)\\b/.test(\n    msg\n  );\n\nconst providedAppointmentId =\n  String(\n    item.appointmentId ||\n    extractAppointmentId(msg) ||\n    \"\"\n  ).trim();\n\nconst providedNewDate =\n  String(\n    item.newAppointmentDate ||\n    \"\"\n  ).trim() ||\n  extractDate(msg);\n\nconst providedNewTime =\n  String(\n    item.newAppointmentTime ||\n    \"\"\n  ).trim() ||\n  extractFlexibleTime(msg);\n\nlet route =\n  \"general\";\n\n\n/*\n * ==================================================\n * CANCEL / RESCHEDULE STATE MACHINE\n * ==================================================\n *\n * This is intentionally separate from bookingStates\n * so the proven booking flow is not overwritten.\n */\n\n/*\n * ==================================================\n * FRESH CANCEL / RESCHEDULE REQUESTS\n * ==================================================\n *\n * An explicit command containing an appointment ID\n * always starts a fresh operation, even if an older\n * operation state was left behind by a previous\n * interrupted workflow execution.\n */\n\n/*\n * ==================================================\n * GLOBAL INFORMATIONAL INTERRUPT\n * ==================================================\n *\n * FAQ / policy questions are allowed to interrupt an\n * in-progress booking, cancellation, or reschedule flow.\n *\n * IMPORTANT:\n * We route the current turn to RAG without clearing either\n * bookingStates or appointmentActionStates. The user can ask\n * an informational question and then continue the previous\n * appointment flow on the next turn.\n *\n * Structured UI actions must never be intercepted here.\n */\nif (\n  !action &&\n  asksInformationalFAQ\n) {\n  route =\n    \"faq\";\n}\n\n/*\n * Fresh cancellation request.\n */\nelse if (\n  startsCancellation &&\n  (\n    operationState.stage === \"idle\" ||\n    providedAppointmentId\n  )\n) {\n  /*\n   * Cancel any stale booking conversation state.\n   * Appointment management takes priority.\n   */\n  state = {\n    ...state,\n    stage: \"idle\",\n    selectedDoctor: null,\n    selectedDate: \"\",\n    displayDate: \"\",\n    dayName: \"\",\n    selectedTime: \"\",\n    availableSlots: [],\n    availabilitySummaryRequested: false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  operationState = {\n    type: \"cancel\",\n\n    stage:\n      providedAppointmentId\n        ? \"lookup\"\n        : \"cancel_awaiting_id\",\n\n    appointmentId:\n      providedAppointmentId,\n\n    newAppointmentDate: \"\",\n\n    newAppointmentTime: \"\",\n\n    cancellationReason:\n      String(\n        item.cancellationReason ||\n        \"\"\n      ).trim(),\n  };\n\n  saveOperationState();\n\n  route =\n    providedAppointmentId\n      ? \"appointment_lookup\"\n      : \"operation_prompt\";\n}\n\n/*\n * Fresh reschedule request.\n */\nelse if (\n  startsReschedule &&\n  (\n    operationState.stage === \"idle\" ||\n    providedAppointmentId\n  )\n) {\n  /*\n   * Reset stale normal-booking state.\n   * Rescheduling is a different operation.\n   */\n  state = {\n    ...state,\n    stage: \"idle\",\n    selectedDoctor: null,\n    selectedDate: \"\",\n    displayDate: \"\",\n    dayName: \"\",\n    selectedTime: \"\",\n    availableSlots: [],\n    availabilitySummaryRequested: false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  operationState = {\n    type: \"reschedule\",\n\n    stage:\n      providedAppointmentId\n        ? \"lookup\"\n        : \"reschedule_awaiting_id\",\n\n    appointmentId:\n      providedAppointmentId,\n\n    newAppointmentDate:\n      providedNewDate,\n\n    newAppointmentTime:\n      providedNewTime,\n\n    cancellationReason: \"\",\n  };\n\n  saveOperationState();\n\n  route =\n    providedAppointmentId\n      ? \"appointment_lookup\"\n      : \"operation_prompt\";\n}\n\n/*\n * Waiting for cancellation appointment number.\n */\nelse if (\n  operationState.stage ===\n    \"cancel_awaiting_id\"\n) {\n  const id =\n    providedAppointmentId ||\n    extractAppointmentId(msg);\n\n  if (id) {\n    operationState.appointmentId =\n      id;\n\n    operationState.stage =\n      \"lookup\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_lookup\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for reschedule appointment number.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_id\"\n) {\n  const id =\n    providedAppointmentId ||\n    extractAppointmentId(msg);\n\n  if (id) {\n    operationState.appointmentId =\n      id;\n\n    if (providedNewDate) {\n      operationState.newAppointmentDate =\n        providedNewDate;\n    }\n\n    if (providedNewTime) {\n      operationState.newAppointmentTime =\n        providedNewTime;\n    }\n\n    operationState.stage =\n      \"lookup\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_lookup\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Cancellation confirmation.\n */\nelse if (\n  operationState.stage ===\n    \"cancel_awaiting_confirmation\"\n) {\n  if (\n    isYes(msg)\n  ) {\n    operationState.stage =\n      \"cancel_executing\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_cancel\";\n  } else if (\n    isNo(msg)\n  ) {\n    clearOperationState();\n\n    route =\n      \"operation_prompt\";\n\n    item.operationPrompt =\n      \"Okay, I will not cancel that appointment.\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for new reschedule date.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_date\"\n) {\n  const date =\n    providedNewDate ||\n    extractDate(msg);\n\n  if (date) {\n    operationState.newAppointmentDate =\n      date;\n\n    const time =\n      providedNewTime ||\n      extractFlexibleTime(msg);\n\n    if (time) {\n      operationState.newAppointmentTime =\n        time;\n\n      operationState.stage =\n        \"reschedule_executing\";\n\n      saveOperationState();\n\n      route =\n        \"appointment_reschedule\";\n    } else {\n      /*\n       * Date was selected but no time was supplied.\n       * Query the doctor's configured schedule plus\n       * current DB bookings before showing time buttons.\n       */\n      operationState.newAppointmentTime =\n        \"\";\n\n      operationState.stage =\n        \"reschedule_loading_slots\";\n\n      saveOperationState();\n\n      route =\n        \"reschedule_slots\";\n    }\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for new reschedule time.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_time\"\n) {\n  const time =\n    providedNewTime ||\n    extractFlexibleTime(msg);\n\n  if (time) {\n    operationState.newAppointmentTime =\n      time;\n\n    operationState.stage =\n      \"reschedule_executing\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_reschedule\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * ==================================================\n * SYMPTOM -> DOCTOR BOOKING HANDOFF\n * ==================================================\n *\n * The symptom recommendation flow stores one real\n * doctor in bookingStates and waits for the patient\n * to accept or decline the suggested booking.\n *\n * Text and voice both arrive here after normalization.\n */\nelse if (\n  state.stage ===\n    \"awaiting_symptom_booking_confirmation\"\n) {\n  const acceptsRecommendation =\n    isYes(msg) ||\n    /\\b(yes please|book it|book with (?:this|that|the) doctor|book (?:this|that) doctor|i(?:'d| would) like to book|make the appointment|schedule it|go ahead and book)\\b/i.test(\n      originalMessage\n    );\n\n  const declinesRecommendation =\n    isNo(msg) ||\n    /\\b(not now|maybe later|no thanks|no thank you|do not book|don't book)\\b/i.test(\n      originalMessage\n    );\n\n  if (\n    acceptsRecommendation &&\n    state.selectedDoctor\n  ) {\n    state.stage =\n      \"awaiting_date\";\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else if (\n    declinesRecommendation\n  ) {\n    state = {\n      ...state,\n\n      stage:\n        \"idle\",\n\n      selectedDoctor:\n        null,\n\n      selectedDate:\n        \"\",\n\n      displayDate:\n        \"\",\n\n      dayName:\n        \"\",\n\n      selectedTime:\n        \"\",\n\n      availableSlots:\n        [],\n\n      symptomContext:\n        null,\n    };\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    item.symptomFollowupPrompt =\n      \"Okay, I will not start an appointment booking. If your symptoms worsen or you develop urgent warning signs, seek prompt in-person medical care. You can ask me about another doctor or start a booking whenever you are ready.\";\n\n    route =\n      \"symptom\";\n  } else {\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    const doctorName =\n      state.selectedDoctor?.doctorName ||\n      state.selectedDoctor?.name ||\n      \"the recommended doctor\";\n\n    item.symptomFollowupPrompt =\n      `Would you like to book an appointment with ${doctorName}? Please say yes to continue to date selection, or no to continue without booking.`;\n\n    route =\n      \"symptom\";\n  }\n}\n\n/*\n * ==================================================\n * 1. STRUCTURED UI: DOCTOR SELECTED\n * ==================================================\n *\n * Existing Doctor Card button.\n */\n\nelse if (\n  action ===\n    \"select_doctor\" ||\n  action ===\n    \"has_doctor\"\n) {\n  if (\n    selectedDoctor\n  ) {\n    state.selectedDoctor =\n      selectedDoctor;\n\n    state.stage =\n      \"awaiting_date\";\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    route =\n      \"booking_doctors\";\n  }\n}\n\n/*\n * ==================================================\n * 2. STRUCTURED UI: DATE SELECTED\n * ==================================================\n *\n * Calendar click.\n */\n\nelse if (\n  action ===\n  \"select_date\"\n) {\n  const date =\n    String(\n      item.selectedDate ||\n        \"\"\n    );\n\n  state.selectedDate =\n    date;\n\n  state.displayDate =\n    item.displayDate ||\n    date;\n\n  state.dayName =\n    item.dayName ||\n    (\n      date\n        ? dayName(\n            date\n          )\n        : \"\"\n    );\n\n  state.selectedTime =\n    \"\";\n\n  state.availableSlots =\n    [];\n\n  state.availabilitySummaryRequested =\n    false;\n\n  state.stage =\n    \"awaiting_time\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_slots\";\n}\n\n/*\n * ==================================================\n * 3. STRUCTURED UI: TIME CONFIRMATION\n * ==================================================\n *\n * Time selection from the UI appointment\n * confirmation flow.\n */\n\nelse if (\n  action ===\n  \"confirm_booking\"\n) {\n  state.selectedTime =\n    String(\n      item.selectedTime ||\n        \"\"\n    );\n\n  state.stage =\n    \"confirming\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_confirm\";\n}\n\n/*\n * ==================================================\n * 4. FRESH BOOKING\n * ==================================================\n *\n * Supports:\n *\n * \"I want to book an appointment\"\n *      -> show doctor list\n *\n * \"I want to book an appointment with Dr. Chamodi Bandara\"\n *      -> select Chamodi immediately if already known\n *      -> go directly to date selection\n *\n * This preserves the existing structured UI flow.\n * ==================================================\n */\n\nelse if (\n  freshBookingRequest\n) {\n  const knownDoctors =\n    Array.isArray(\n      state.currentDoctors\n    )\n      ? state.currentDoctors\n      : [];\n\n  /*\n   * Try to identify a doctor mentioned in\n   * the user's natural-language booking request.\n   */\n  const doctorFromMessage =\n    matchDoctor(\n      msg,\n      knownDoctors\n    );\n\n  if (\n    doctorFromMessage\n  ) {\n    state = {\n      ...state,\n\n      stage:\n        \"awaiting_date\",\n\n      selectedDoctor:\n        doctorFromMessage,\n\n      selectedDate:\n        \"\",\n\n      displayDate:\n        \"\",\n\n      dayName:\n        \"\",\n\n      selectedTime:\n        \"\",\n\n      availableSlots:\n        [],\n\n      availabilitySummaryRequested:\n        false,\n    };\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    /*\n     * No doctor could be identified from the\n     * message, so use the existing doctor picker.\n     */\n    state = {\n      stage:\n        \"idle\",\n\n      currentDoctors:\n        knownDoctors,\n\n      selectedDoctor:\n        null,\n\n      selectedDate:\n        \"\",\n\n      displayDate:\n        \"\",\n\n      dayName:\n        \"\",\n\n      selectedTime:\n        \"\",\n\n      availableSlots:\n        [],\n\n      availabilitySummaryRequested:\n        false,\n    };\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_doctors\";\n  }\n}\n/*\n * ==================================================\n * 5. DOCTOR LIST REQUEST\n * ==================================================\n */\n\nelse if (\n  asksForDoctorList\n) {\n  state = {\n    ...state,\n\n    stage:\n      \"idle\",\n\n    selectedDoctor:\n      null,\n\n    selectedDate:\n      \"\",\n\n    displayDate:\n      \"\",\n\n    dayName:\n      \"\",\n\n    selectedTime:\n      \"\",\n\n    availableSlots:\n      [],\n\n    availabilitySummaryRequested:\n      false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"doctors\";\n}\n\n/*\n * ==================================================\n * 6. WAITING FOR DOCTOR\n * ==================================================\n *\n * CRITICAL:\n *\n * Ordinals are interpreted as doctors ONLY\n * while stage === awaiting_doctor.\n *\n * Therefore:\n *\n * \"Go with the first doctor\"\n *          ↓\n * doctor 1\n *\n * But after doctor selection:\n *\n * \"Fifth of October\"\n *\n * will NOT be interpreted as doctor 5.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_doctor\"\n) {\n  const doctor =\n    matchDoctor(\n      msg,\n      state.currentDoctors\n    );\n\n  if (\n    doctor\n  ) {\n    state.selectedDoctor =\n      doctor;\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    state.stage =\n      \"awaiting_date\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    route =\n      \"booking_doctors\";\n  }\n}\n\n/*\n * ==================================================\n * 7. GENERIC BOOKING START\n * ==================================================\n */\n\nelse if (\n  startsBooking &&\n  !startsCancellation &&\n  !startsReschedule &&\n  operationState.stage === \"idle\" &&\n  state.stage === \"idle\"\n) {\n  route =\n    \"booking_doctors\";\n}\n\n/*\n * ==================================================\n * 8. WAITING FOR DATE\n * ==================================================\n *\n * Works for BOTH text and voice:\n *\n * Fifth of October\n * October fifth\n * 5th October\n * October 5\n * today\n * tomorrow\n *\n * Clicking the calendar still works through\n * action === select_date.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_date\"\n) {\n  const naturalDate =\n    extractDate(\n      msg\n    );\n\n  if (\n    naturalDate\n  ) {\n    state.selectedDate =\n      naturalDate;\n\n    state.displayDate =\n      naturalDate;\n\n    state.dayName =\n      dayName(\n        naturalDate\n      );\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    state.stage =\n      \"awaiting_time\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_slots\";\n  } else {\n    /*\n     * Example:\n     *\n     * What dates and times are available?\n     */\n    state.availabilitySummaryRequested =\n      asksAvailability;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  }\n}\n\n/*\n * ==================================================\n * 9. WAITING FOR TIME\n * ==================================================\n *\n * This is also the stage that Format Booking Result\n * MUST restore after a failed booking.\n *\n * Examples:\n *\n * First one\n * Go with the first one\n * Second one\n * Then go with the second one\n * Second time slot\n * 6 PM\n *\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_time\"\n) {\n  const naturalTime =\n    extractTime(\n      msg,\n      state.availableSlots\n    );\n\n  if (\n    naturalTime\n  ) {\n    /*\n     * Preserve the selected slot.\n     */\n    state.selectedTime =\n      naturalTime;\n\n    /*\n     * Immediately attempt booking.\n     *\n     * We do not need an extra:\n     *\n     * \"Can you confirm?\"\n     *\n     * turn.\n     */\n    state.stage =\n      \"confirming\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  } else {\n    /*\n     * Could not understand the requested time.\n     *\n     * Keep state intact and show times again.\n     */\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_slots\";\n  }\n}\n\n/*\n * ==================================================\n * 10. CONFIRMING\n * ==================================================\n *\n * Normally the database booking happens immediately\n * after entering this state.\n *\n * This fallback prevents random messages from\n * destroying the booking context if another request\n * arrives before result-state handling finishes.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"confirming\"\n) {\n  /*\n   * If user explicitly gives another time while\n   * we're still marked confirming, allow recovery.\n   */\n  const alternativeTime =\n    extractTime(\n      msg,\n      state.availableSlots\n    );\n\n  if (\n    alternativeTime\n  ) {\n    state.selectedTime =\n      alternativeTime;\n\n    state.stage =\n      \"confirming\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  } else {\n    /*\n     * Keep context rather than falling to Gemini/general.\n     */\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  }\n}\n\n/*\n * ==================================================\n * 11. NON-BOOKING ROUTES\n * ==================================================\n */\n\nelse if (\n  /\\b(doctor|doctors|specialist|cardiologist|neurologist|pediatric|gp|general practitioner)\\b/.test(\n    msg\n  )\n) {\n  route =\n    \"doctors\";\n}\n\nelse if (\n  asksInformationalFAQ\n) {\n  route =\n    \"faq\";\n}\n\nelse if (\n  asksSymptoms\n) {\n  route =\n    \"symptom\";\n}\n\n/*\n * ==================================================\n * OUTPUT\n * ==================================================\n */\n\nconst out = {\n  ...item,\n\n  /*\n   * Original user text/STT transcript.\n   */\n  normalizedMessage:\n    originalMessage,\n\n  route,\n\n  voiceMode,\n\n  state,\n\n  selectedDoctor:\n    state.selectedDoctor ||\n    selectedDoctor ||\n    null,\n\n  selectedDate:\n    state.selectedDate ||\n    item.selectedDate ||\n    \"\",\n\n  displayDate:\n    state.displayDate ||\n    item.displayDate ||\n    \"\",\n\n  dayName:\n    state.dayName ||\n    item.dayName ||\n    \"\",\n\n  selectedTime:\n    state.selectedTime ||\n    item.selectedTime ||\n    \"\",\n\n  operationState,\n\n  appointmentId:\n    operationState.appointmentId ||\n    item.appointmentId ||\n    \"\",\n\n  newAppointmentDate:\n    operationState.newAppointmentDate ||\n    item.newAppointmentDate ||\n    \"\",\n\n  newAppointmentTime:\n    operationState.newAppointmentTime ||\n    item.newAppointmentTime ||\n    \"\",\n\n  cancellationReason:\n    operationState.cancellationReason ||\n    item.cancellationReason ||\n    \"\",\n\n  operationPrompt:\n    item.operationPrompt ||\n    \"\",\n};\n\nreturn [\n  {\n    json:\n      out,\n  },\n];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -176,
-        288
+        -2544,
+        -464
       ],
-      "id": "d2be27b5-f980-42b6-8abc-686e18e108fc",
+      "id": "abf05a01-e071-4938-aac2-8e2e42885df1",
       "name": "Route + Booking State"
     },
     {
@@ -541,10 +541,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        64,
-        272
+        -2304,
+        -352
       ],
-      "id": "a9e88e29-4545-4763-a2ad-6b6290d63a04",
+      "id": "c37ad847-3717-429f-985e-0b2ab6e4b520",
       "name": "Route"
     },
     {
@@ -556,10 +556,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        336,
-        -96
+        -1968,
+        -1008
       ],
-      "id": "cb4428ca-7794-431e-b84f-56b2aca6a3e1",
+      "id": "9d795b40-e516-4361-9679-18ba992dd6f6",
       "name": "Get Doctors",
       "alwaysOutputData": true,
       "credentials": {
@@ -578,10 +578,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        336,
-        48
+        -1968,
+        -864
       ],
-      "id": "e65fd864-3194-4f8b-a4ef-02af6d1b9b60",
+      "id": "1a25cd65-9d7e-4f21-8ebe-52bfd24713ec",
       "name": "Get Booking Doctors",
       "alwaysOutputData": true,
       "credentials": {
@@ -598,10 +598,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        576,
-        -32
+        -1728,
+        -944
       ],
-      "id": "53713cae-92c2-4982-bf4e-7fe7e44b3a2d",
+      "id": "4ebcf84b-477f-4957-923f-ee700ab67cca",
       "name": "Format Doctors"
     },
     {
@@ -611,10 +611,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        336,
-        192
+        -1968,
+        -720
       ],
-      "id": "d6f494ce-aa62-4cbd-8f86-d9f031490ff3",
+      "id": "80c28d65-bbda-4743-a8cf-a1eff978d237",
       "name": "Build Calendar"
     },
     {
@@ -624,10 +624,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        576,
-        336
+        -1728,
+        -576
       ],
-      "id": "acd31ad2-2bbf-4eac-846b-12e7e61280e6",
+      "id": "3da9d165-0286-458e-b7fb-b1b5203a8f89",
       "name": "Get Time Slots"
     },
     {
@@ -637,10 +637,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        336,
-        464
+        -1968,
+        -448
       ],
-      "id": "221de2f2-0503-4eea-bfd3-d62dc1090d40",
+      "id": "79a481a8-bc91-428e-a5f7-bca4dae63539",
       "name": "Prepare Booking"
     },
     {
@@ -654,10 +654,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        576,
-        464
+        -1728,
+        -448
       ],
-      "id": "e979ea5b-910f-4ba6-a986-d81c82f880e2",
+      "id": "da2f295d-2929-4e77-b282-7cd2da3c6288",
       "name": "Book Appointment",
       "alwaysOutputData": true,
       "credentials": {
@@ -674,10 +674,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1056,
-        464
+        -1248,
+        -448
       ],
-      "id": "7d1c7425-18f7-491e-8814-bc21fb4fbccd",
+      "id": "aaf9cb49-1346-4c96-bf78-af0301a7b61e",
       "name": "Format Booking Result"
     },
     {
@@ -687,10 +687,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        336,
-        640
+        -1952,
+        160
       ],
-      "id": "4369e58b-1ad2-4ce6-b563-1543b79e9d42",
+      "id": "84fc8227-7f10-4080-ae59-9c81e7402e08",
       "name": "Prepare RAG Query"
     },
     {
@@ -700,10 +700,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        336,
-        784
+        -1952,
+        -48
       ],
-      "id": "72d8dfd8-3f35-46c2-b937-53a4aff66ec6",
+      "id": "e7bc7023-9aee-48d7-9958-4f9551f724e5",
       "name": "Symptom Guidance"
     },
     {
@@ -713,10 +713,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1296,
-        928
+        -864,
+        208
       ],
-      "id": "97c47759-b315-48eb-945c-1ff6fbf78766",
+      "id": "bd179cba-d699-42d9-8fd2-efe398e3e014",
       "name": "Prepare General AI"
     },
     {
@@ -744,10 +744,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        576,
-        928
+        -640,
+        208
       ],
-      "id": "76f87b0e-fed9-47e0-af15-20292e9f0bbd",
+      "id": "d046e436-8eb6-470d-b6f0-898c808a6495",
       "name": "Gemini General Reply"
     },
     {
@@ -757,10 +757,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        816,
-        928
+        -416,
+        208
       ],
-      "id": "6e9fbf1d-a81f-47c9-9ac2-e00b58de3e33",
+      "id": "94cff03f-5b10-4b0e-a494-d6c472a8261b",
       "name": "Parse General AI"
     },
     {
@@ -801,10 +801,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1072,
-        272
+        -256,
+        -288
       ],
-      "id": "307119fb-5bf4-4a5a-adb8-6ac2a061b717",
+      "id": "917b9e3c-d348-4e5f-8da5-db9c86470720",
       "name": "Voice Reply?"
     },
     {
@@ -826,10 +826,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1312,
-        384
+        0,
+        -112
       ],
-      "id": "89240cc2-6c6c-4f97-a521-fe3f099a0f4d",
+      "id": "d314816a-4263-443a-83a3-7e60b3c50fbe",
       "name": "Respond Text"
     },
     {
@@ -839,10 +839,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1312,
-        144
+        -16,
+        -416
       ],
-      "id": "3bb372ee-ef80-41d1-82fd-813708971df5",
+      "id": "1f8f8fc6-5cd9-4892-89b8-4031a9da3457",
       "name": "Prepare TTS"
     },
     {
@@ -880,10 +880,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1536,
-        144
+        256,
+        -416
       ],
-      "id": "2f23d276-348a-4f0b-b228-233885d5a5f9",
+      "id": "ad2bb26d-01b4-498b-bafe-8f37953dfc85",
       "name": "ElevenLabs TTS"
     },
     {
@@ -893,10 +893,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1744,
-        144
+        480,
+        -416
       ],
-      "id": "f0a9e657-2784-4464-b18e-b4f85846605e",
+      "id": "54617e40-4613-46c3-bd88-5eb20097c939",
       "name": "Build Voice Response"
     },
     {
@@ -918,10 +918,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1968,
-        144
+        688,
+        -416
       ],
-      "id": "ae81e8a3-042d-4280-be57-96863ec47831",
+      "id": "32863faa-8954-447d-82e5-e183dec669ef",
       "name": "Respond Voice"
     },
     {
@@ -931,10 +931,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        336,
-        1120
+        -1952,
+        336
       ],
-      "id": "dd92426c-9161-4426-b5db-07f9326a2bdc",
+      "id": "cc2bc4a1-697a-4af8-a0de-b0ddcb2c3966",
       "name": "Operation Prompt"
     },
     {
@@ -961,10 +961,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        336,
-        1248
+        -1952,
+        512
       ],
-      "id": "8a016e7e-53b4-470f-8073-e3ef73e23334",
+      "id": "90f8cdd5-b4ad-4b45-8d9e-d310b2170b78",
       "name": "Lookup Appointment API"
     },
     {
@@ -974,10 +974,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        576,
-        1248
+        -1712,
+        512
       ],
-      "id": "b7604bb3-5581-4a63-ade5-2c4ede418f40",
+      "id": "bc0ac187-19ed-4c6a-9555-db6efb548ddd",
       "name": "Format Appointment Lookup"
     },
     {
@@ -1066,10 +1066,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        832,
-        1200
+        -1200,
+        480
       ],
-      "id": "5a08e448-16bf-4164-b5e2-d470bbe7a24c",
+      "id": "7c1050fb-3120-459d-9b3e-72b4f4d2ea6f",
       "name": "Appointment Lookup Next"
     },
     {
@@ -1100,10 +1100,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        336,
-        1376
+        -1952,
+        720
       ],
-      "id": "d9a0f31e-c83b-43ad-99b9-87886426e5bd",
+      "id": "be86fc3c-749f-453e-aa24-7bcec2160b9c",
       "name": "Cancel Appointment API"
     },
     {
@@ -1113,10 +1113,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        576,
-        1376
+        -1712,
+        720
       ],
-      "id": "fdebc748-6766-4126-9b78-e47014a088e3",
+      "id": "9c69ac7f-1ff0-43b5-99f1-f7d83d5b53ff",
       "name": "Format Cancel Result"
     },
     {
@@ -1147,10 +1147,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1072,
-        1248
+        -1712,
+        352
       ],
-      "id": "a5e33ab9-2e19-4b09-9e15-59e571e793d0",
+      "id": "6fb5e146-5421-43a5-a041-da0dd3b55ed6",
       "name": "Reschedule Appointment API"
     },
     {
@@ -1160,10 +1160,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1312,
-        1248
+        -1456,
+        352
       ],
-      "id": "9c7ee5fb-f6c8-40d2-9a00-643670058a18",
+      "id": "91aa54fc-7179-4f3a-896a-01da3c604003",
       "name": "Format Reschedule Result"
     },
     {
@@ -1190,10 +1190,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        592,
-        704
+        -1952,
+        912
       ],
-      "id": "f5197931-9d3b-46bd-af7b-d18b96434163",
+      "id": "ecaf4c35-2989-4302-b419-98f98157553d",
       "name": "Get Reschedule Slots"
     },
     {
@@ -1203,10 +1203,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        576,
-        1120
+        -1712,
+        912
       ],
-      "id": "aa8555f5-821d-474d-a962-b15ec8e276ba",
+      "id": "dcae8c75-6e1c-4406-8e3e-e6ec27d1d640",
       "name": "Format Reschedule Slots"
     },
     {
@@ -1233,10 +1233,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        336,
-        336
+        -1968,
+        -576
       ],
-      "id": "3a0cf468-50a4-4a2e-ae09-9366ab0ea8ea",
+      "id": "8114f4c7-1d8e-4968-b5a8-a06387274dc2",
       "name": "Get Booking Availability",
       "alwaysOutputData": true
     },
@@ -1268,10 +1268,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        816,
-        464
+        -1488,
+        -448
       ],
-      "id": "9ac50d2d-61be-44f5-a59e-a26d84033df9",
+      "id": "cf7acb12-409a-437c-af1f-220647fb09b4",
       "name": "Sync Created Appointment"
     },
     {
@@ -1302,10 +1302,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        576,
-        784
+        -1728,
+        -48
       ],
-      "id": "7aa89611-af76-4534-9911-64f1cc3ef525",
+      "id": "30af0eda-b88a-4f17-90aa-7f77ec64f71e",
       "name": "Needs Symptom Doctor Lookup?"
     },
     {
@@ -1317,10 +1317,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        816,
-        720
+        -1472,
+        -160
       ],
-      "id": "9dda2e06-f5f0-4c75-9d2b-df1bb52a19c8",
+      "id": "14ad8948-4a92-4380-bbe4-cea44f6d3a3c",
       "name": "Get Symptom Doctors",
       "alwaysOutputData": true,
       "credentials": {
@@ -1337,22 +1337,24 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1056,
-        720
+        -1232,
+        -160
       ],
-      "id": "265210dd-eb7b-43c9-9b57-6cb7a74a9f90",
+      "id": "3f4f8295-61de-488a-a52c-45d11eab1932",
       "name": "Format Symptom Doctor Recommendation"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:8000/ask",
+        "url": "http://127.0.0.1:8000/ask",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-chat-auth",
-              "value": "={{ $env.CHAT_API_SECRET }}"
+              "value": "=0Qk6MjzFJKGwgdSFwfgjzfC/Dj1jwfkA+D4MW5G1z5o="
             },
             {
               "name": "Content-Type",
@@ -1375,12 +1377,18 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        576,
-        640
+        -1712,
+        160
       ],
-      "id": "9d4d8d12-1e71-4e56-aa43-0cc710d23999",
+      "id": "bac45c2f-5077-4ea9-b918-0266534842d0",
       "name": "RAG Knowledge Search",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "d8OQIm6uwzJHYPie",
+          "name": "Medicare RAG API Secret"
+        }
+      }
     },
     {
       "parameters": {
@@ -1389,10 +1397,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        816,
-        640
+        -1456,
+        160
       ],
-      "id": "9aea7f2c-9b34-4266-868c-26d123862dbf",
+      "id": "69d5295a-36b6-476a-8f53-92d4f89a13f6",
       "name": "Parse RAG Result"
     },
     {
@@ -1456,10 +1464,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        1056,
-        640
+        -1216,
+        144
       ],
-      "id": "a8a5a7c6-5519-4fad-a6f7-5105d6ffea07",
+      "id": "f22eb8b1-d557-41e7-b60f-814600d81df9",
       "name": "RAG Result Route"
     }
   ],
@@ -2104,16 +2112,16 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "1f524528-4399-4378-a6b1-cb442f8fe275",
+  "versionId": "d3c93a8e-f661-4194-9287-c4a8cf178bda",
   "meta": {
     "instanceId": "a17f4d4d340af8743d79321d7cf9d61e6d327539725a755259d2bc575a6d5bd2"
   },
-  "id": "medicare-symptom-qdrant-rag-import",
+  "id": "COtr3ghC51PfBWy9",
   "tags": []
 }
