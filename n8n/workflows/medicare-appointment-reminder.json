@@ -55,7 +55,7 @@
       "name": "Process Appointment Reminders",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "m7TMMhREEqz4knZz",
+          "id": "3PRcQUGLVtPn9N87",
           "name": "Medicare Reminder Secret"
         }
       }
@@ -81,7 +81,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "3d02593c-d71c-4e2a-a5e9-7d1bd39839b5",
+  "versionId": "7f14cd98-0274-4a84-b49d-9f3663b6314e",
   "meta": {
     "instanceId": "a17f4d4d340af8743d79321d7cf9d61e6d327539725a755259d2bc575a6d5bd2"
   },

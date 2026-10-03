@@ -106,15 +106,8 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.elevenlabs.io/v1/speech-to-text",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -139,7 +132,13 @@
         -704
       ],
       "id": "d3a60d2f-6bc1-485a-a909-f41aab082b59",
-      "name": "ElevenLabs STT"
+      "name": "ElevenLabs STT",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "d8OQIm6uwzJHYPie",
+          "name": "Medicare Eleven Labs API Key"
+        }
+      }
     },
     {
       "parameters": {
@@ -708,7 +707,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const src =\n  $json;\n\nconst user =\n  String(\n    src.question ||\n    src.normalizedMessage ||\n    src.message ||\n    src.transcript ||\n    \"\"\n  ).trim();\n\nconst prompt = `\nYou are the virtual receptionist for Medicare Medical Center in Sri Lanka.\n\nThe verified medical-center knowledge base did not contain a sufficiently confident answer to this question.\n\nRules:\n- Keep the reply under 80 words.\n- Be helpful and administrative.\n- Do not invent clinic-specific facts such as opening hours, address, phone numbers, fees, insurance providers, services, doctor schedules, policies, or appointment availability.\n- If the user asks for clinic-specific information that is not verified, say that you do not have a verified answer and suggest contacting reception.\n- Do not diagnose, prescribe, recommend a medicine, or change treatment.\n- For medical symptoms, advise speaking with a clinician; for emergency warning signs, advise urgent in-person/emergency care.\n- Do not claim an appointment is booked unless the booking workflow confirms it.\n\nUser question:\n${user}\n`.trim();\n\nreturn [\n  {\n    json: {\n      prompt,\n      question:\n        user,\n      message:\n        user,\n      normalizedMessage:\n        user,\n      originalRoute:\n        src.originalRoute ||\n        \"general\",\n      ragFallback:\n        true,\n      voiceMode:\n        src.voiceMode === true,\n      requestVoiceReply:\n        src.requestVoiceReply === true,\n      sessionId:\n        src.sessionId || \"\",\n      email:\n        src.email || \"\",\n    },\n  },\n];"
+        "jsCode": "const src =\n  $json;\n\nconst user =\n  String(\n    src.question ||\n    src.normalizedMessage ||\n    src.message ||\n    src.transcript ||\n    \"\"\n  ).trim();\n\nconst prompt = `\nYou are the virtual receptionist for Medicare Medical Center in Sri Lanka.\n\nThe verified medical-center knowledge base did not contain a sufficiently confident answer to this question.\n\nRules:\n- Keep greetings and simple replies brief and natural.\n- Keep general administrative replies under 100 words.\n- Be helpful and professional.\n- Do not invent clinic-specific facts such as opening hours, address, phone numbers, fees, insurance providers, services, doctor schedules, policies, or appointment availability.\n- If the user asks for clinic-specific information that is not verified, say that you do not have a verified answer and suggest contacting reception.\n- Do not diagnose, prescribe, recommend a medicine, or change treatment.\n- For medical symptoms, advise speaking with a clinician; for emergency warning signs, advise urgent in-person or emergency care.\n- Do not claim an appointment is booked unless the booking workflow confirms it.\n\nUser question:\n${user}\n`.trim();\n\nreturn [\n  {\n    json: {\n      prompt,\n      question:\n        user,\n      message:\n        user,\n      normalizedMessage:\n        user,\n      originalRoute:\n        src.originalRoute ||\n        \"general\",\n      ragFallback:\n        true,\n      voiceMode:\n        src.voiceMode === true,\n      requestVoiceReply:\n        src.requestVoiceReply === true,\n      sessionId:\n        src.sessionId || \"\",\n      email:\n        src.email || \"\",\n    },\n  },\n];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -723,22 +722,11 @@
       "parameters": {
         "method": "POST",
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-goog-api-key",
-              "value": "={{ $env.GEMINI_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 180 } }) }}",
+        "jsonBody": "={{ JSON.stringify({\n  contents: [\n    {\n      parts: [\n        {\n          text: $json.prompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.3,\n    maxOutputTokens: 180\n  }\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -748,7 +736,13 @@
         208
       ],
       "id": "d046e436-8eb6-470d-b6f0-898c808a6495",
-      "name": "Gemini General Reply"
+      "name": "Gemini General Reply",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "m7TMMhREEqz4knZz",
+          "name": "Medicare Gemini API Key"
+        }
+      }
     },
     {
       "parameters": {
@@ -849,23 +843,8 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.elevenlabs.io/v1/text-to-speech/gsfHgo0em3A2WqPLbIE5",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            },
-            {
-              "name": "Accept",
-              "value": "audio/mpeg"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ text: $json.ttsText, model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.1, use_speaker_boost: true } }) }}",
@@ -884,7 +863,13 @@
         -416
       ],
       "id": "ad2bb26d-01b4-498b-bafe-8f37953dfc85",
-      "name": "ElevenLabs TTS"
+      "name": "ElevenLabs TTS",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "d8OQIm6uwzJHYPie",
+          "name": "Medicare Eleven Labs API Key"
+        }
+      }
     },
     {
       "parameters": {
@@ -1349,19 +1334,6 @@
         "url": "http://127.0.0.1:8000/ask",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-chat-auth",
-              "value": "=0Qk6MjzFJKGwgdSFwfgjzfC/Dj1jwfkA+D4MW5G1z5o="
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ question: $json.question }) }}",
@@ -1385,7 +1357,7 @@
       "alwaysOutputData": true,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "d8OQIm6uwzJHYPie",
+          "id": "AnkYhkrz6hhMB8l9",
           "name": "Medicare RAG API Secret"
         }
       }
@@ -2118,7 +2090,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "d3c93a8e-f661-4194-9287-c4a8cf178bda",
+  "versionId": "92431773-9d4c-4c28-be94-3b7d60925dbe",
   "meta": {
     "instanceId": "a17f4d4d340af8743d79321d7cf9d61e6d327539725a755259d2bc575a6d5bd2"
   },
