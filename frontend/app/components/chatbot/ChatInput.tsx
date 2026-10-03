@@ -346,7 +346,7 @@ export default function ChatInput({
 
   return (
     <div className="w-full space-y-2">
-      {/* Selected image */}
+      {/* Selected attachment */}
       {image ? (
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <span className="truncate">
@@ -391,13 +391,13 @@ export default function ChatInput({
 
       {/* Main chat bar */}
       <div className="flex w-full items-center gap-2 rounded-[28px] border border-slate-200 bg-white px-3 py-2 shadow-sm">
-        {/* Hidden attachment input */}
+        {/* Hidden medical-document input */}
         <input
           ref={
             fileInputRef
           }
           type="file"
-          accept="image/*"
+          accept="application/pdf,image/jpeg,image/png"
           className="hidden"
           onChange={(
             event
@@ -426,8 +426,8 @@ export default function ChatInput({
             height: 42,
             minWidth: 42,
           }}
-          aria-label="Attach image"
-          title="Attach image"
+          aria-label="Attach medical document"
+          title="Attach PDF or image"
         >
           <Paperclip
             size={23}

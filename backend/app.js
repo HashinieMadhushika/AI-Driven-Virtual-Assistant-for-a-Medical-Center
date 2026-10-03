@@ -14,6 +14,7 @@ import contactRoutes from './src/routes/contactRoutes.js';
 import dashboardRoutes from './src/routes/dashboardRoutes.js';
 import chatRoutes from './src/routes/chatRoutes.js';
 import assistantRoutes from './src/routes/assistantRoutes.js';
+import medicalDocumentRoutes from './src/routes/medicalDocumentRoutes.js';
 
 import sequelize from './src/config/db.js';
 
@@ -25,6 +26,7 @@ import ChatSession from './src/models/ChatSession.js';
 import ChatMessage from './src/models/ChatMessage.js';
 import ChatAccessCode from './src/models/ChatAccessCode.js';
 import HandoverRequest from './src/models/HandoverRequest.js';
+import MedicalDocument from './src/models/MedicalDocument.js';
 
 Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });
 Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
@@ -50,6 +52,26 @@ ChatSession.hasMany(HandoverRequest, {
 HandoverRequest.belongsTo(ChatSession, {
   foreignKey: 'sessionId',
   as: 'session',
+});
+
+ChatSession.hasMany(MedicalDocument, {
+  foreignKey: 'sessionId',
+  as: 'medicalDocuments',
+});
+
+MedicalDocument.belongsTo(ChatSession, {
+  foreignKey: 'sessionId',
+  as: 'session',
+});
+
+Patient.hasMany(MedicalDocument, {
+  foreignKey: 'patientId',
+  as: 'medicalDocuments',
+});
+
+MedicalDocument.belongsTo(Patient, {
+  foreignKey: 'patientId',
+  as: 'patient',
 });
 
 const app = express();
@@ -85,6 +107,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/medical-documents', medicalDocumentRoutes);
 
 app.use(
   '/api/assistant',

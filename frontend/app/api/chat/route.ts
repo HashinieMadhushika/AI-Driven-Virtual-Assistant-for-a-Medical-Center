@@ -41,6 +41,13 @@ type ChatRequest = {
   audioBase64?: string;
   mimeType?: string;
   requestVoiceReply?: boolean;
+  documentType?:
+    | "PRESCRIPTION"
+    | "MEDICAL_REPORT"
+    | "LAB_REPORT"
+    | "OTHER_MEDICAL_DOCUMENT";
+  documentFile?: File;
+  documentId?: string;
 };
 
 type CalendarDay = {
@@ -86,6 +93,15 @@ type AssistantResponse = {
     status: "Pending" | "Active" | "Resolved";
     phone?: string;
   } | null;
+  documentResult?: {
+    documentType: string;
+    success: boolean;
+    error?: boolean | string;
+    message?: string;
+    timestamp?: string;
+    card?: Record<string, unknown>;
+    data?: Record<string, unknown>;
+  };
 };
 
 function getBackendUrl() {
@@ -99,6 +115,28 @@ function getBackendUrl() {
 function isHumanSupportRequest(message: string) {
   return /\b(talk|speak|chat|connect)\s+(?:to|with)\s+(?:a\s+)?(?:human|person|receptionist|agent|staff|admin)\b|\bhuman\s+(?:support|help|agent)\b|\breal\s+person\b|\bneed\s+(?:a\s+)?(?:human|receptionist|agent)\b/i.test(
     message
+  );
+}
+
+function isDocumentExitRequest(message: string) {
+  const normalized =
+    String(
+      message ||
+      ""
+    )
+      .toLowerCase()
+      .replace(
+        /[.,!?]/g,
+        " "
+      )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+  return /^(exit document mode|exit report mode|stop document mode|stop checking (?:the )?(?:document|report|prescription)|finish (?:the )?(?:document|report|prescription)|done with (?:the )?(?:document|report|prescription)|go back to normal assistant|return to normal assistant)$/.test(
+    normalized
   );
 }
 
@@ -275,6 +313,18 @@ async function parseRequest(request: Request): Promise<ChatRequest> {
       requestVoiceReply:
         String(formData.get("requestVoiceReply") ?? "").toLowerCase() ===
         "true",
+      documentType: String(
+        formData.get("documentType") ?? ""
+      ) as ChatRequest["documentType"],
+      documentId: String(
+        formData.get("documentId") ?? ""
+      ),
+      documentFile:
+        formData.get("image") instanceof File
+          ? (formData.get("image") as File)
+          : formData.get("document") instanceof File
+            ? (formData.get("document") as File)
+            : undefined,
     };
   }
 
@@ -548,6 +598,582 @@ export async function POST(request: Request) {
         sessionId: payload.sessionId,
         email: payload.email,
         historySaved: true,
+      });
+    }
+
+    /*
+     * VOICE MEDICAL-DOCUMENT Q&A
+     *
+     * When document mode is active, voice is transcribed by the backend,
+     * answered against the private document with Gemini, and spoken back
+     * with ElevenLabs. Normal voice/n8n behavior remains unchanged outside
+     * document mode.
+     */
+    if (
+      hasAudio &&
+      payload.documentId
+    ) {
+      const cleanBase64 =
+        String(
+          payload.audioBase64 ||
+          ""
+        ).includes(
+          ","
+        )
+          ? String(
+              payload.audioBase64
+            ).split(
+              ","
+            )[1]
+          : String(
+              payload.audioBase64 ||
+              ""
+            );
+
+      if (!cleanBase64) {
+        return NextResponse.json(
+          {
+            error:
+              "Voice recording is missing.",
+            reply:
+              "I could not read that voice recording.",
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      const audioBytes =
+        Buffer.from(
+          cleanBase64,
+          "base64"
+        );
+
+      const voiceForm =
+        new FormData();
+
+      voiceForm.set(
+        "sessionId",
+        payload.sessionId
+      );
+
+      voiceForm.set(
+        "email",
+        payload.email
+      );
+
+      voiceForm.set(
+        "audio",
+        new Blob(
+          [
+            audioBytes,
+          ],
+          {
+            type:
+              payload.mimeType ||
+              "audio/webm",
+          }
+        ),
+        "medical-document-question.webm"
+      );
+
+      const voiceResponse =
+        await fetch(
+          `${backendUrl}/api/medical-documents/${encodeURIComponent(
+            payload.documentId
+          )}/ask-voice`,
+          {
+            method:
+              "POST",
+            body:
+              voiceForm,
+            cache:
+              "no-store",
+          }
+        );
+
+      const rawVoiceResponse =
+        await voiceResponse.text();
+
+      let voiceData: {
+        success?: boolean;
+        error?: string;
+        reply?: string;
+        transcript?: string;
+        intent?: string;
+        documentId?: string;
+        documentType?: string;
+        originalFileName?: string;
+        voiceMode?: boolean;
+        audioBase64?: string;
+        mimeType?: string;
+      };
+
+      try {
+        voiceData =
+          JSON.parse(
+            rawVoiceResponse
+          );
+      } catch {
+        console.error(
+          "[medical document voice] backend returned non-JSON response",
+          {
+            status:
+              voiceResponse.status,
+            body:
+              rawVoiceResponse.slice(
+                0,
+                500
+              ),
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Medical document voice service returned an invalid response.",
+            reply:
+              "I could not process that voice question about your document.",
+          },
+          {
+            status:
+              502,
+          }
+        );
+      }
+
+      if (
+        !voiceResponse.ok
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              voiceData.error ??
+              "Could not answer the voice medical document question.",
+            reply:
+              voiceData.error ??
+              "I could not answer that voice question about your document.",
+          },
+          {
+            status:
+              voiceResponse.status,
+          }
+        );
+      }
+
+      const transcript =
+        String(
+          voiceData.transcript ||
+          ""
+        ).trim();
+
+      const assistantReply =
+        String(
+          voiceData.reply ||
+          "I could not produce an explanation for that document."
+        ).trim();
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            transcript ||
+            "Voice question about uploaded medical document",
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        transcript,
+        intent:
+          voiceData.intent ??
+          "medical_document_question",
+        documentId:
+          voiceData.documentId ??
+          payload.documentId,
+        documentType:
+          voiceData.documentType,
+        originalFileName:
+          voiceData.originalFileName,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        voiceMode:
+          true,
+        audioBase64:
+          voiceData.audioBase64 ??
+          "",
+        mimeType:
+          voiceData.mimeType ??
+          "audio/mpeg",
+        historySaved,
+      });
+    }
+
+    /*
+     * SECURE MEDICAL-DOCUMENT UPLOAD
+     *
+     * Prescriptions/reports are stored by the backend in a PRIVATE
+     * Supabase Storage bucket. File bytes do not go to n8n/Gemini.
+     */
+    if (payload.documentFile) {
+      const uploadForm =
+        new FormData();
+
+      uploadForm.set(
+        "sessionId",
+        payload.sessionId
+      );
+
+      uploadForm.set(
+        "firstName",
+        String(
+          payload.firstName ??
+          ""
+        )
+      );
+
+      uploadForm.set(
+        "email",
+        payload.email
+      );
+
+      uploadForm.set(
+        "documentType",
+        payload.documentType ||
+          "OTHER_MEDICAL_DOCUMENT"
+      );
+
+      uploadForm.set(
+        "document",
+        payload.documentFile,
+        payload.documentFile.name
+      );
+
+      const uploadResponse =
+        await fetch(
+          `${backendUrl}/api/medical-documents/upload`,
+          {
+            method:
+              "POST",
+            body:
+              uploadForm,
+            cache:
+              "no-store",
+          }
+        );
+
+      const uploadRaw =
+        await uploadResponse.text();
+
+      let uploadData: {
+        success?: boolean;
+        error?: string;
+        reply?: string;
+        documentResult?: AssistantResponse["documentResult"];
+      };
+
+      try {
+        uploadData =
+          JSON.parse(
+            uploadRaw
+          ) as {
+            success?: boolean;
+            error?: string;
+            reply?: string;
+            documentResult?: AssistantResponse["documentResult"];
+          };
+      } catch {
+        console.error(
+          "[medical document upload] backend returned non-JSON response",
+          {
+            status:
+              uploadResponse.status,
+            body:
+              uploadRaw.slice(
+                0,
+                500
+              ),
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Medical document service returned an invalid response.",
+            reply:
+              "The medical document upload service is not available right now.",
+          },
+          {
+            status:
+              502,
+          }
+        );
+      }
+
+      if (!uploadResponse.ok) {
+        return NextResponse.json(
+          {
+            error:
+              uploadData.error ??
+              "Medical document upload failed",
+            reply:
+              uploadData.error ??
+              "I could not upload that medical document.",
+          },
+          {
+            status:
+              uploadResponse.status,
+          }
+        );
+      }
+
+      const documentType =
+        payload.documentType ||
+        "OTHER_MEDICAL_DOCUMENT";
+
+      const assistantReply =
+        String(
+          uploadData.reply ??
+          "Your medical document was uploaded securely."
+        ).trim();
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            `Uploaded a ${documentType
+              .toLowerCase()
+              .replaceAll(
+                "_",
+                " "
+              )}.`,
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        intent:
+          "medical_document_uploaded",
+        documentResult:
+          uploadData.documentResult,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        historySaved,
+      });
+    }
+
+    if (
+      !hasAudio &&
+      payload.documentId &&
+      isDocumentExitRequest(
+        message
+      )
+    ) {
+      const assistantReply =
+        "Document review mode has ended successfully. You can now continue with normal Medicare AI questions, book or manage an appointment, find a doctor, request human support, or upload another medical document.";
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            message,
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        intent:
+          "medical_document_exit",
+        documentId:
+          payload.documentId,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        historySaved,
+      });
+    }
+
+    /*
+     * MEDICAL DOCUMENT Q&A
+     *
+     * When the patient is in document-question mode, ask the backend
+     * to explain the already-uploaded private document with Gemini.
+     * The file remains in private Supabase Storage and is fetched
+     * server-side only.
+     */
+    if (
+      !hasAudio &&
+      payload.documentId &&
+      message.trim()
+    ) {
+      const documentResponse =
+        await fetch(
+          `${backendUrl}/api/medical-documents/${encodeURIComponent(
+            payload.documentId
+          )}/ask`,
+          {
+            method:
+              "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                sessionId:
+                  payload.sessionId,
+                email:
+                  payload.email,
+                question:
+                  message,
+              }),
+            cache:
+              "no-store",
+          }
+        );
+
+      const rawDocumentResponse =
+        await documentResponse.text();
+
+      let documentData: {
+        success?: boolean;
+        error?: string;
+        reply?: string;
+        intent?: string;
+        documentId?: string;
+        documentType?: string;
+        originalFileName?: string;
+      };
+
+      try {
+        documentData =
+          JSON.parse(
+            rawDocumentResponse
+          );
+      } catch {
+        console.error(
+          "[medical document question] backend returned non-JSON response",
+          {
+            status:
+              documentResponse.status,
+            body:
+              rawDocumentResponse.slice(
+                0,
+                500
+              ),
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Medical document guidance service returned an invalid response.",
+            reply:
+              "I could not read the medical document guidance service response.",
+          },
+          {
+            status:
+              502,
+          }
+        );
+      }
+
+      if (
+        !documentResponse.ok
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              documentData.error ??
+              "Could not answer the medical document question.",
+            reply:
+              documentData.error ??
+              "I could not answer that question about your document.",
+          },
+          {
+            status:
+              documentResponse.status,
+          }
+        );
+      }
+
+      const assistantReply =
+        String(
+          documentData.reply ??
+          "I could not produce an explanation for that document."
+        ).trim();
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            message,
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        intent:
+          "medical_document_question",
+        documentId:
+          documentData.documentId ??
+          payload.documentId,
+        documentType:
+          documentData.documentType,
+        originalFileName:
+          documentData.originalFileName,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        historySaved,
       });
     }
 

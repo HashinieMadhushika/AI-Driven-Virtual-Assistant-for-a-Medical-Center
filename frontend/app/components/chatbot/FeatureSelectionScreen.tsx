@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck,
   Stethoscope,
+  Activity,
   FileText,
   Pill,
   Mic,
@@ -52,8 +53,10 @@ type BookingAction =
   | "reschedule_appointment";
 
 type DocumentType =
+  | "PRESCRIPTION"
   | "MEDICAL_REPORT"
-  | "PRESCRIPTION";
+  | "LAB_REPORT"
+  | "OTHER_MEDICAL_DOCUMENT";
 
 type TimeSlot =
   | string
@@ -168,6 +171,8 @@ type ChatApiResponse = {
   symptomCard?: SymptomCardData;
 
   documentResult?: DocumentResultData;
+
+  documentId?: string;
 
   voiceMode?: boolean;
 
@@ -295,6 +300,20 @@ export default function FeatureSelectionScreen({
     useState<
       DocumentType | null
     >(null);
+
+  const [
+    activeDocumentId,
+    setActiveDocumentId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    activeDocumentName,
+    setActiveDocumentName,
+  ] =
+    useState("");
 
   const [
     handoverStatus,
@@ -851,7 +870,7 @@ export default function FeatureSelectionScreen({
 
       const messageText =
         t ||
-        "Please analyze the attached image.";
+        "Please upload the attached medical document.";
 
       const nextMessages:
         ChatMessage[] =
@@ -972,6 +991,17 @@ export default function FeatureSelectionScreen({
           visitor.email
         );
 
+        if (
+          activeDocumentId &&
+          !image &&
+          !booking
+        ) {
+          formData.set(
+            "documentId",
+            activeDocumentId
+          );
+        }
+
         if (booking) {
           formData.set(
             "bookingAction",
@@ -1030,7 +1060,7 @@ export default function FeatureSelectionScreen({
           formData.set(
             "documentType",
             selectedDocumentType ??
-              "PRESCRIPTION"
+              "OTHER_MEDICAL_DOCUMENT"
           );
         }
 
@@ -1076,6 +1106,42 @@ export default function FeatureSelectionScreen({
 
         const data =
           (await response.json()) as ChatApiResponse;
+
+        const uploadedDocumentId =
+          data.documentResult
+            ?.data
+            ?.documentId;
+
+        if (
+          typeof uploadedDocumentId ===
+          "string"
+        ) {
+          setActiveDocumentId(
+            uploadedDocumentId
+          );
+
+          const uploadedName =
+            data.documentResult
+              ?.data
+              ?.originalFileName;
+
+          setActiveDocumentName(
+            typeof uploadedName ===
+              "string"
+              ? uploadedName
+              : image?.name ??
+                  "uploaded medical document"
+          );
+        } else if (
+          typeof data.documentId ===
+          "string" &&
+          data.intent ===
+            "medical_document_question"
+        ) {
+          setActiveDocumentId(
+            data.documentId
+          );
+        }
 
         if (
           !response.ok ||
@@ -1126,6 +1192,23 @@ export default function FeatureSelectionScreen({
         const startsDoctorBooking =
           booking?.action ===
           "start_booking";
+
+        if (
+          data.intent ===
+          "medical_document_exit"
+        ) {
+          setActiveDocumentId(
+            null
+          );
+
+          setActiveDocumentName(
+            ""
+          );
+
+          setSelectedDocumentType(
+            null
+          );
+        }
 
         const returnedDoctors =
           data.doctors ??
@@ -1257,11 +1340,13 @@ export default function FeatureSelectionScreen({
    * → MediaRecorder Blob
    * → base64
    * → /api/chat
-   * → backend
-   * → n8n
-   * → ElevenLabs STT
-   * → same intent/booking logic
-   * → ElevenLabs TTS
+   * → if document mode is active:
+   *      backend private document Q&A
+   *      → ElevenLabs STT
+   *      → Gemini document explanation
+   *      → ElevenLabs TTS
+   * → otherwise:
+   *      existing backend/n8n voice flow
    * → audioBase64
    */
   const handleVoiceSend =
@@ -1439,6 +1524,10 @@ export default function FeatureSelectionScreen({
 
                     requestVoiceReply:
                       true,
+
+                    documentId:
+                      activeDocumentId ||
+                      undefined,
                   }
                 ),
             }
@@ -1513,6 +1602,23 @@ export default function FeatureSelectionScreen({
             },
           ]
         );
+
+        if (
+          data.intent ===
+          "medical_document_exit"
+        ) {
+          setActiveDocumentId(
+            null
+          );
+
+          setActiveDocumentName(
+            ""
+          );
+
+          setSelectedDocumentType(
+            null
+          );
+        }
 
         const returnedDoctors =
           data.doctors ??
@@ -1678,7 +1784,15 @@ export default function FeatureSelectionScreen({
           icon={
             <CalendarCheck className="h-5 w-5" />
           }
-          onClick={() =>
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
             setMessages(
               (
                 current
@@ -1696,8 +1810,8 @@ export default function FeatureSelectionScreen({
                     "pending",
                 },
               ]
-            )
-          }
+            );
+          }}
         />
 
         <FeatureCard
@@ -1706,11 +1820,19 @@ export default function FeatureSelectionScreen({
           icon={
             <Stethoscope className="h-5 w-5" />
           }
-          onClick={() =>
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
             void handleSend(
               "Who are the available doctors?"
-            )
-          }
+            );
+          }}
         />
 
         <FeatureCard
@@ -1719,9 +1841,17 @@ export default function FeatureSelectionScreen({
           icon={
             <Headphones className="h-5 w-5" />
           }
-          onClick={() =>
-            void requestHumanSupport()
-          }
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
+            void requestHumanSupport();
+          }}
         />
 
         <FeatureCard
@@ -1730,7 +1860,15 @@ export default function FeatureSelectionScreen({
           icon={
             <FileText className="h-5 w-5" />
           }
-          onClick={() =>
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
             setMessages(
               (
                 current
@@ -1742,14 +1880,14 @@ export default function FeatureSelectionScreen({
                     "ai",
 
                   text:
-                    "What type of document would you like to check?",
+                    "What type of medical document would you like to upload securely?",
 
                   documentChoice:
                     "pending",
                 },
               ]
-            )
-          }
+            );
+          }}
         />
       </div>
 
@@ -1781,6 +1919,37 @@ export default function FeatureSelectionScreen({
               Call {handoverPhone}
             </a>
           </div>
+        </div>
+      ) : null}
+
+      {activeDocumentId &&
+      !handoverStatus ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs text-teal-900">
+          <div>
+            <span className="font-semibold">
+              Document question mode:
+            </span>{" "}
+            Ask questions about{" "}
+            {activeDocumentName ||
+              "your uploaded medical document"}.
+          </div>
+
+          <button
+            type="button"
+            disabled={
+              isSending
+            }
+            onClick={() => {
+              void handleSend(
+                "exit document mode"
+              );
+            }}
+            className="rounded-lg border border-teal-300 bg-white px-2.5 py-1 font-medium text-teal-800 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSending
+              ? "Exiting..."
+              : "Exit document mode"}
+          </button>
         </div>
       ) : null}
 
@@ -1837,6 +2006,13 @@ export default function FeatureSelectionScreen({
                   result={
                     m.documentResult
                   }
+                  onAskDocumentQuestion={(
+                    question
+                  ) => {
+                    void handleSend(
+                      question
+                    );
+                  }}
                 />
               ) : null}
 
@@ -1959,7 +2135,7 @@ export default function FeatureSelectionScreen({
                               "ai",
 
                             text:
-                              "Medical report selected. Attach an image of the report; you can add a question too.",
+                              "Medical report selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
                           },
                         ]
                       );
@@ -2002,7 +2178,7 @@ export default function FeatureSelectionScreen({
                               "ai",
 
                             text:
-                              "Prescription selected. Attach an image of the prescription; you can add a question too.",
+                              "Prescription selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
                           },
                         ]
                       );
@@ -2011,6 +2187,90 @@ export default function FeatureSelectionScreen({
                   >
                     <Pill className="h-4 w-4" />
                     Prescription
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocumentType(
+                        "LAB_REPORT"
+                      );
+
+                      setMessages(
+                        (
+                          current
+                        ) => [
+                          ...current.map(
+                            (
+                              message,
+                              index
+                            ) =>
+                              index ===
+                              i
+                                ? {
+                                    ...message,
+                                    documentChoice:
+                                      "LAB_REPORT" as const,
+                                  }
+                                : message
+                          ),
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "Lab report selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3.5 py-2 text-sm font-medium text-teal-800 transition hover:bg-teal-50"
+                  >
+                    <Activity className="h-4 w-4" />
+                    Lab report
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocumentType(
+                        "OTHER_MEDICAL_DOCUMENT"
+                      );
+
+                      setMessages(
+                        (
+                          current
+                        ) => [
+                          ...current.map(
+                            (
+                              message,
+                              index
+                            ) =>
+                              index ===
+                              i
+                                ? {
+                                    ...message,
+                                    documentChoice:
+                                      "OTHER_MEDICAL_DOCUMENT" as const,
+                                  }
+                                : message
+                          ),
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "Other medical document selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Other document
                   </button>
                 </div>
               ) : null}
