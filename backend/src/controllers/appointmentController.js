@@ -8,6 +8,9 @@ import {
   syncCancelledAppointment,
   getDoctorAvailability,
 } from '../services/appointmentSyncService.js';
+import {
+  processDueAppointmentReminders,
+} from '../services/appointmentReminderService.js';
 
 const ACTIVE_STATUSES = ['Pending', 'Confirmed'];
 
@@ -799,6 +802,59 @@ export const reschedulePublicAppointment = async (req, res) => {
     return res.status(500).json({
       message: 'Error rescheduling appointment',
       error: error.message,
+    });
+  }
+};
+
+/*
+ * Internal scheduled reminder processor.
+ *
+ * Called by n8n using x-reminder-secret rather than a doctor JWT.
+ */
+export const processAppointmentReminders = async (req, res) => {
+  try {
+    const configuredSecret =
+      process.env.REMINDER_JOB_SECRET;
+
+    if (!configuredSecret) {
+      return res.status(503).json({
+        error:
+          'Reminder job secret is not configured',
+      });
+    }
+
+    const providedSecret =
+      req.get('x-reminder-secret');
+
+    if (
+      !providedSecret ||
+      providedSecret !== configuredSecret
+    ) {
+      return res.status(401).json({
+        error:
+          'Unauthorized reminder job request',
+      });
+    }
+
+    const result =
+      await processDueAppointmentReminders();
+
+    return res.json({
+      success: true,
+      processedAt:
+        new Date().toISOString(),
+      ...result,
+    });
+  } catch (error) {
+    console.error(
+      '[Appointment Reminder] Processing failed',
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error:
+        'Failed to process appointment reminders',
     });
   }
 };

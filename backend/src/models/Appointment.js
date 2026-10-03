@@ -50,9 +50,29 @@ const Appointment = sequelize.define('Appointment', {
     type: DataTypes.STRING(255),
     allowNull: true,
   },
+  reminder24hSentAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  reminder1hSentAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'appointments',
   timestamps: true,
+});
+
+
+Appointment.beforeUpdate((appointment) => {
+  const scheduleChanged =
+    appointment.changed('appointmentDate') ||
+    appointment.changed('appointmentTime');
+
+  if (scheduleChanged) {
+    appointment.reminder24hSentAt = null;
+    appointment.reminder1hSentAt = null;
+  }
 });
 
 export default Appointment;

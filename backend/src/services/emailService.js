@@ -405,3 +405,74 @@ export async function sendCancellationConfirmation({
       `</p>`,
   });
 }
+
+/*
+ * =========================================================
+ * APPOINTMENT REMINDER EMAIL
+ * =========================================================
+ */
+
+export async function sendAppointmentReminder({
+  appointment,
+  patient,
+  doctor,
+  reminderType,
+}) {
+  const d = commonDetails(
+    appointment,
+    patient,
+    doctor
+  );
+
+  const isOneHour =
+    reminderType === '1h';
+
+  const timingMessage =
+    isOneHour
+      ? 'Your appointment is coming up very soon.'
+      : 'This is a reminder about your upcoming appointment.';
+
+  return sendMail({
+    to:
+      patient?.email,
+
+    subject:
+      `Appointment reminder - #${d.appointmentId}`,
+
+    text:
+      `Hello ${d.patientName},\n\n` +
+      `${timingMessage}\n\n` +
+      `Appointment ID: ${d.appointmentId}\n` +
+      `Doctor: ${d.doctorName}\n` +
+      `Date: ${d.date}\n` +
+      `Time: ${d.time}\n` +
+      `Type: ${d.type}\n` +
+      `Mode: ${d.mode}\n\n` +
+      `If you are unable to attend, please reschedule or cancel your appointment through the Medicare AI Assistant.\n\n` +
+      `Regards,\n` +
+      `Medicare AI Center`,
+
+    html:
+      `<p>Hello ${d.patientName},</p>` +
+
+      `<p>${timingMessage}</p>` +
+
+      `<p>` +
+      `<strong>Appointment ID:</strong> ${d.appointmentId}<br>` +
+      `<strong>Doctor:</strong> ${d.doctorName}<br>` +
+      `<strong>Date:</strong> ${d.date}<br>` +
+      `<strong>Time:</strong> ${d.time}<br>` +
+      `<strong>Type:</strong> ${d.type}<br>` +
+      `<strong>Mode:</strong> ${d.mode}` +
+      `</p>` +
+
+      `<p>` +
+      `If you are unable to attend, please reschedule or cancel your appointment through the Medicare AI Assistant.` +
+      `</p>` +
+
+      `<p>` +
+      `Regards,<br>` +
+      `Medicare AI Center` +
+      `</p>`,
+  });
+}

@@ -126,6 +126,20 @@ router.post(
 
 /*
  * =========================================================
+ * INTERNAL SCHEDULED JOB ROUTES
+ * =========================================================
+ *
+ * Called by n8n. This route is intentionally before the
+ * JWT middleware and is protected by x-reminder-secret.
+ */
+
+router.post(
+  '/internal/process-reminders',
+  appointmentController.processAppointmentReminders
+);
+
+/*
+ * =========================================================
  * AUTHENTICATED ROUTES
  * =========================================================
  */
