@@ -1,0 +1,90 @@
+{
+  "name": "Medicare Appointment Reminder Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "eb0f8654-b24d-492d-b33e-dd73aaf679de",
+      "name": "Every 15 Minutes"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5000/api/appointments/internal/process-reminders",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "e4cd4839-a58a-46c4-96be-0a274babf5e7",
+      "name": "Process Appointment Reminders",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "m7TMMhREEqz4knZz",
+          "name": "Medicare Reminder Secret"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Process Appointment Reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3d02593c-d71c-4e2a-a5e9-7d1bd39839b5",
+  "meta": {
+    "instanceId": "a17f4d4d340af8743d79321d7cf9d61e6d327539725a755259d2bc575a6d5bd2"
+  },
+  "id": "RSNjD5nQDYxTWWmT",
+  "tags": []
+}
