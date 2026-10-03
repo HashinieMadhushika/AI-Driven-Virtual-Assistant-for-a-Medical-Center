@@ -2,15 +2,15 @@
 
 import React, { useState } from "react";
 
-import ChatbotPopup from "../components/chatbot/ChatbotPopup";
-import Header from "./header/Header";
-import Footer from "./footer/Footer";
-import Hero from "./sections/Hero";
-import Services from "./sections/Services";
-import Vision from "./sections/Vision";
-import About from "./sections/About";
-import Contact from "./sections/Contact";
-import ChatbotButton from "./sections/ChatbotButton";
+import ChatbotPopup from "./components/chatbot/ChatbotPopup";
+import Header from "./homepage/header/Header";
+import Footer from "./homepage/footer/Footer";
+import Hero from "./homepage/sections/Hero";
+import Services from "./homepage/sections/Services";
+import Vision from "./homepage/sections/Vision";
+import About from "./homepage/sections/About";
+import Contact from "./homepage/sections/Contact";
+import ChatbotButton from "./homepage/sections/ChatbotButton";
 
 const HomePage = () => {
   const [chatbotOpen, setChatbotOpen] = useState(false);

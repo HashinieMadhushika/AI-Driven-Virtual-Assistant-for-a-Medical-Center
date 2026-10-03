@@ -3,6 +3,10 @@
 import React, { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+const API =
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  'http://localhost:5000'
+
 function AcceptInviteContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -25,7 +29,9 @@ function AcceptInviteContent() {
     setError(null)
 
     if (!canSubmit) {
-      setError('Check token and password (min 6) + confirm password.')
+      setError(
+        'Check token and password (min 6) + confirm password.'
+      )
       return
     }
 
@@ -33,7 +39,7 @@ function AcceptInviteContent() {
 
     try {
       const res = await fetch(
-        'http://localhost:5000/api/doctors/accept-invite',
+        `${API}/api/doctors/accept-invite`,
         {
           method: 'POST',
           headers: {
@@ -96,7 +102,9 @@ function AcceptInviteContent() {
               type="password"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
               autoComplete="new-password"
             />
           </div>
@@ -110,7 +118,9 @@ function AcceptInviteContent() {
               type="password"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) =>
+                setConfirm(e.target.value)
+              }
               autoComplete="new-password"
             />
 
@@ -130,7 +140,9 @@ function AcceptInviteContent() {
             disabled={loading || !canSubmit}
             className="w-full rounded-xl py-3 text-sm font-medium bg-teal-600 text-white hover:bg-teal-700 transition disabled:opacity-60"
           >
-            {loading ? 'Saving...' : 'Set Password'}
+            {loading
+              ? 'Saving...'
+              : 'Set Password'}
           </button>
         </form>
       </div>

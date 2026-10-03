@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
+
 export default function DoctorDashboard() {
   const [doctor, setDoctor] = useState<any>(null);
   const [stats, setStats] = useState({
@@ -36,7 +38,7 @@ export default function DoctorDashboard() {
   const checkCalendarConnection = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/calendar/status', {
+      const response = await fetch(`${API}/api/calendar/status`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -52,7 +54,7 @@ export default function DoctorDashboard() {
     try {
       setLoadingEvents(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/calendar/events', {
+      const response = await fetch(`${API}/api/calendar/events`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -81,7 +83,7 @@ export default function DoctorDashboard() {
     try {
       setLoadingAppointments(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/appointments/today', {
+      const response = await fetch(`${API}/api/appointments/today`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -101,7 +103,7 @@ export default function DoctorDashboard() {
   const fetchAppointmentStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/appointments/stats', {
+      const response = await fetch(`${API}/api/appointments/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

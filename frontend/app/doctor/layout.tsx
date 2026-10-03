@@ -26,7 +26,8 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     const userData = localStorage.getItem('user');
 
     if (!token || userRole !== 'doctor') {
-      router.push('/doctor/dashboard');
+      // replace (not push) so the back button can't return to a protected page
+      router.replace('/login');
       return;
     }
 
@@ -40,7 +41,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
-    router.push('/homepage');
+    router.replace('/');
   };
 
   const navItems = [

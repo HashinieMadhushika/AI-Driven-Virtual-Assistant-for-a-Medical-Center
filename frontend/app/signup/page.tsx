@@ -4,6 +4,8 @@ import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HeartPulse } from 'lucide-react'
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'
+
 export default function SignupPage() {
   const router = useRouter()
 
@@ -31,8 +33,8 @@ export default function SignupPage() {
 
     setLoading(true)
     try {
-      // ✅ Admin signup only
-      const signupRes = await fetch('http://localhost:5000/api/auth/register', {
+      // Admin signup only
+      const signupRes = await fetch(`${API}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -49,7 +51,7 @@ export default function SignupPage() {
       }
 
       // ✅ Auto-login after signup
-      const loginRes = await fetch('http://localhost:5000/api/auth/login', {
+      const loginRes = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -153,7 +155,7 @@ export default function SignupPage() {
         <div className="mt-3 text-center">
           <button
             type="button"
-            onClick={() => router.push('/homepage')}
+            onClick={() => router.push('/')}
             className="text-xs text-teal-700 hover:underline"
           >
             ← Back to Home
