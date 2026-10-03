@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HeartPulse, Shield, Stethoscope } from 'lucide-react'
 
@@ -313,14 +313,6 @@ function LoginContent() {
   )
 }
 
-// useSearchParams() must be inside a Suspense boundary, or `next build` fails
-export default function LoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginContent />
-    </Suspense>
-  )
-}
 function LoginLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
