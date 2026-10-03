@@ -24,6 +24,7 @@ import Appointment from './src/models/Appointment.js';
 import ChatSession from './src/models/ChatSession.js';
 import ChatMessage from './src/models/ChatMessage.js';
 import ChatAccessCode from './src/models/ChatAccessCode.js';
+import HandoverRequest from './src/models/HandoverRequest.js';
 
 Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });
 Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
@@ -39,6 +40,16 @@ ChatSession.hasMany(ChatMessage, {
 ChatMessage.belongsTo(ChatSession, {
   foreignKey: 'sessionId',
   as: 'session'
+});
+
+ChatSession.hasMany(HandoverRequest, {
+  foreignKey: 'sessionId',
+  as: 'handoverRequests',
+});
+
+HandoverRequest.belongsTo(ChatSession, {
+  foreignKey: 'sessionId',
+  as: 'session',
 });
 
 const app = express();

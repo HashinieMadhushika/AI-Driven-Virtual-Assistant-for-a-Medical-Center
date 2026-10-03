@@ -79,6 +79,13 @@ type AssistantResponse = {
   voiceMode?: boolean;
   audioBase64?: string;
   mimeType?: string;
+  humanMode?: boolean;
+  phone?: string;
+  handover?: {
+    id: number;
+    status: "Pending" | "Active" | "Resolved";
+    phone?: string;
+  } | null;
 };
 
 function getBackendUrl() {
@@ -87,6 +94,53 @@ function getBackendUrl() {
     process.env.BACKEND_BASE_URL ||
     "http://localhost:5000"
   );
+}
+
+function isHumanSupportRequest(message: string) {
+  return /\b(talk|speak|chat|connect)\s+(?:to|with)\s+(?:a\s+)?(?:human|person|receptionist|agent|staff|admin)\b|\bhuman\s+(?:support|help|agent)\b|\breal\s+person\b|\bneed\s+(?:a\s+)?(?:human|receptionist|agent)\b/i.test(
+    message
+  );
+}
+
+async function getOpenHandover({
+  backendUrl,
+  sessionId,
+  email,
+}: {
+  backendUrl: string;
+  sessionId: string;
+  email: string;
+}) {
+  try {
+    const response = await fetch(
+      `${backendUrl}/api/chat/handover/status/${encodeURIComponent(
+        sessionId
+      )}?email=${encodeURIComponent(email)}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      handover?: AssistantResponse["handover"];
+      phone?: string;
+    };
+
+    const status = data.handover?.status;
+
+    return status === "Pending" || status === "Active"
+      ? {
+          handover: data.handover,
+          phone: data.phone ?? data.handover?.phone ?? "",
+        }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function mapBookingAction(action: ChatRequest["bookingAction"] | undefined) {
@@ -365,6 +419,138 @@ export async function POST(request: Request) {
     }
 
     const backendUrl = getBackendUrl();
+
+    /*
+     * HUMAN HANDOVER
+     *
+     * Human-support requests never go to n8n/Gemini.
+     * While a handover is Pending/Active, AI replies are suspended.
+     */
+    if (!hasAudio && isHumanSupportRequest(message)) {
+      const handoverResponse = await fetch(
+        `${backendUrl}/api/chat/handover/request`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: payload.sessionId,
+            firstName: String(payload.firstName ?? ""),
+            email: payload.email,
+            reason: message.trim() || "Patient requested human support",
+          }),
+          cache: "no-store",
+        }
+      );
+
+      const handoverData = (await handoverResponse.json()) as {
+        error?: string;
+        reply?: string;
+        handover?: AssistantResponse["handover"];
+      };
+
+      if (!handoverResponse.ok) {
+        return NextResponse.json(
+          {
+            error: handoverData.error ?? "Could not request human support",
+            reply:
+              handoverData.error ??
+              "I could not request a receptionist right now. Please call Medicare Medical Center.",
+          },
+          {
+            status: handoverResponse.status,
+          }
+        );
+      }
+
+      return NextResponse.json({
+        reply:
+          handoverData.reply ??
+          "A receptionist has been requested for this conversation.",
+        intent: "human_handover_requested",
+        humanMode: true,
+        handover: handoverData.handover ?? null,
+        phone: handoverData.handover?.phone ?? "+94 11 234 5678",
+        sessionId: payload.sessionId,
+        email: payload.email,
+        historySaved: true,
+      });
+    }
+
+    const openHandover = await getOpenHandover({
+      backendUrl,
+      sessionId: payload.sessionId,
+      email: payload.email,
+    });
+
+    if (openHandover) {
+      if (hasAudio) {
+        return NextResponse.json(
+          {
+            error: "Human support is active",
+            reply:
+              "A Medicare receptionist is handling this conversation. Please type your message here, or call the medical center.",
+            intent: "human_handover_active",
+            humanMode: true,
+            handover: openHandover.handover,
+            phone: openHandover.phone,
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+
+      const patientMessageResponse = await fetch(
+        `${backendUrl}/api/chat/handover/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: payload.sessionId,
+            firstName: String(payload.firstName ?? ""),
+            email: payload.email,
+            content: message.trim(),
+          }),
+          cache: "no-store",
+        }
+      );
+
+      const patientMessageData = (await patientMessageResponse.json()) as {
+        error?: string;
+        handover?: AssistantResponse["handover"];
+      };
+
+      if (!patientMessageResponse.ok) {
+        return NextResponse.json(
+          {
+            error:
+              patientMessageData.error ??
+              "Could not send message to reception",
+          },
+          {
+            status: patientMessageResponse.status,
+          }
+        );
+      }
+
+      return NextResponse.json({
+        reply: "",
+        intent: "human_handover_message_sent",
+        humanMode: true,
+        handover:
+          patientMessageData.handover ??
+          openHandover.handover,
+        phone: openHandover.phone,
+        sessionId: payload.sessionId,
+        email: payload.email,
+        historySaved: true,
+      });
+    }
+
     const selectedDoctor = normalizeDoctor(payload.selectedDoctor);
 
     const backendPayload = {

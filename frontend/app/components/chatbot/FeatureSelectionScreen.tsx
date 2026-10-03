@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck,
   Stethoscope,
@@ -9,6 +9,8 @@ import {
   Mic,
   Volume2,
   Play,
+  Headphones,
+  Phone,
 } from "lucide-react";
 
 import FeatureCard from "./FeatureCard";
@@ -63,7 +65,8 @@ type TimeSlot =
 type ChatMessage = {
   role:
     | "ai"
-    | "user";
+    | "user"
+    | "admin";
 
   text: string;
 
@@ -171,6 +174,19 @@ type ChatApiResponse = {
   audioBase64?: string;
 
   mimeType?: string;
+
+  humanMode?: boolean;
+
+  phone?: string;
+
+  handover?: {
+    id: number;
+    status:
+      | "Pending"
+      | "Active"
+      | "Resolved";
+    phone?: string;
+  } | null;
 };
 
 function VoicePlayback({
@@ -281,6 +297,47 @@ export default function FeatureSelectionScreen({
     >(null);
 
   const [
+    handoverStatus,
+    setHandoverStatus,
+  ] =
+    useState<
+      | "Pending"
+      | "Active"
+      | null
+    >(null);
+
+  const [
+    handoverId,
+    setHandoverId,
+  ] =
+    useState<
+      number | null
+    >(null);
+
+  const [
+    handoverPhone,
+    setHandoverPhone,
+  ] =
+    useState(
+      "+94 11 234 5678"
+    );
+
+  const lastHumanMessageIdRef =
+    useRef(0);
+
+  const previousHandoverStatusRef =
+    useRef<
+      | "Pending"
+      | "Active"
+      | null
+    >(null);
+
+  const backendBaseUrl =
+    process.env
+      .NEXT_PUBLIC_BACKEND_URL ??
+    "http://localhost:5000";
+
+  const [
     messages,
     setMessages,
   ] =
@@ -318,6 +375,339 @@ export default function FeatureSelectionScreen({
         },
       ];
     });
+
+  const requestHumanSupport =
+    async (
+      reason =
+        "I want to talk to a human receptionist."
+    ) => {
+      if (
+        isSending
+      ) {
+        return;
+      }
+
+      setIsSending(
+        true
+      );
+
+      try {
+        const response =
+          await fetch(
+            `${backendBaseUrl}/api/chat/handover/request`,
+            {
+              method:
+                "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body:
+                JSON.stringify({
+                  sessionId,
+                  firstName:
+                    visitor.firstName,
+                  email:
+                    visitor.email,
+                  reason,
+                }),
+            }
+          );
+
+        const data =
+          (await response.json()) as {
+            error?: string;
+            reply?: string;
+            handover?: {
+              id: number;
+              status:
+                | "Pending"
+                | "Active"
+                | "Resolved";
+              phone?: string;
+            } | null;
+          };
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            data.error ??
+              "Could not request human support"
+          );
+        }
+
+        const status =
+          data.handover
+            ?.status;
+
+        if (
+          status ===
+            "Pending" ||
+          status ===
+            "Active"
+        ) {
+          setHandoverStatus(
+            status
+          );
+
+          previousHandoverStatusRef.current =
+            status;
+        }
+
+        if (
+          data.handover
+            ?.id
+        ) {
+          setHandoverId(
+            data.handover.id
+          );
+        }
+
+        if (
+          data.handover
+            ?.phone
+        ) {
+          setHandoverPhone(
+            data.handover.phone
+          );
+        }
+
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+            {
+              role:
+                "ai",
+              text:
+                data.reply ??
+                "A Medicare receptionist has been requested for this conversation.",
+              intent:
+                "human_handover_requested",
+            },
+          ]
+        );
+      } catch (
+        error
+      ) {
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+            {
+              role:
+                "ai",
+              text:
+                error instanceof
+                  Error
+                  ? error.message
+                  : "I could not request human support right now.",
+            },
+          ]
+        );
+      } finally {
+        setIsSending(
+          false
+        );
+      }
+    };
+
+  /*
+   * Poll human-support status and receptionist/system replies.
+   *
+   * AI is suspended while the handover is Pending or Active.
+   */
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      const poll =
+        async () => {
+          try {
+            const response =
+              await fetch(
+                `${backendBaseUrl}/api/chat/handover/messages/${encodeURIComponent(
+                  sessionId
+                )}?email=${encodeURIComponent(
+                  visitor.email
+                )}&afterId=${lastHumanMessageIdRef.current}`,
+                {
+                  cache:
+                    "no-store",
+                }
+              );
+
+            if (
+              !response.ok ||
+              cancelled
+            ) {
+              return;
+            }
+
+            const data =
+              (await response.json()) as {
+                handover?: {
+                  id: number;
+                  status:
+                    | "Pending"
+                    | "Active"
+                    | "Resolved";
+                  phone?: string;
+                } | null;
+                phone?: string;
+                messages?: Array<{
+                  id: number;
+                  role:
+                    | "admin"
+                    | "system";
+                  content: string;
+                }>;
+              };
+
+            const phone =
+              data.phone ??
+              data.handover
+                ?.phone;
+
+            if (phone) {
+              setHandoverPhone(
+                phone
+              );
+            }
+
+            const status =
+              data.handover
+                ?.status;
+
+            if (
+              status ===
+                "Pending" ||
+              status ===
+                "Active"
+            ) {
+              setHandoverStatus(
+                status
+              );
+
+              setHandoverId(
+                data.handover
+                  ?.id ??
+                  null
+              );
+
+              previousHandoverStatusRef.current =
+                status;
+            } else if (
+              status ===
+                "Resolved" &&
+              previousHandoverStatusRef.current
+            ) {
+              setHandoverStatus(
+                null
+              );
+
+              setHandoverId(
+                null
+              );
+
+              previousHandoverStatusRef.current =
+                null;
+            }
+
+            const newMessages =
+              data.messages ??
+              [];
+
+            if (
+              newMessages.length >
+              0
+            ) {
+              lastHumanMessageIdRef.current =
+                Math.max(
+                  lastHumanMessageIdRef.current,
+                  ...newMessages.map(
+                    (
+                      message
+                    ) =>
+                      message.id
+                  )
+                );
+
+              setMessages(
+                (
+                  current
+                ) => [
+                  ...current,
+                  ...newMessages.map(
+                    (
+                      message
+                    ): ChatMessage => ({
+                      role:
+                        message.role ===
+                        "admin"
+                          ? "admin"
+                          : "ai",
+                      text:
+                        message.content,
+                      intent:
+                        message.role ===
+                        "admin"
+                          ? "human_handover_reply"
+                          : "human_handover_system",
+                    })
+                  ),
+                ]
+              );
+            }
+          } catch (
+            error
+          ) {
+            console.warn(
+              "[Human handover] polling failed",
+              error
+            );
+          }
+        };
+
+      const start =
+        window.setTimeout(
+          () => {
+            void poll();
+          },
+          0
+        );
+
+      const timer =
+        window.setInterval(
+          () => {
+            void poll();
+          },
+          3000
+        );
+
+      return () => {
+        cancelled =
+          true;
+
+        window.clearTimeout(
+          start
+        );
+
+        window.clearInterval(
+          timer
+        );
+      };
+    },
+    [
+      backendBaseUrl,
+      sessionId,
+      visitor.email,
+    ]
+  );
 
   /*
    * Convert recorded browser Blob to raw base64.
@@ -491,6 +881,78 @@ export default function FeatureSelectionScreen({
         true
       );
 
+      /*
+       * During human handover, patient text goes directly to reception.
+       * It is NOT forwarded to the AI/n8n workflow.
+       */
+      if (
+        handoverStatus
+      ) {
+        try {
+          const response =
+            await fetch(
+              `${backendBaseUrl}/api/chat/handover/messages`,
+              {
+                method:
+                  "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body:
+                  JSON.stringify({
+                    sessionId,
+                    firstName:
+                      visitor.firstName,
+                    email:
+                      visitor.email,
+                    content:
+                      messageText,
+                  }),
+              }
+            );
+
+          const data =
+            (await response.json()) as {
+              error?: string;
+            };
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              data.error ??
+                "Could not send message to reception"
+            );
+          }
+        } catch (
+          error
+        ) {
+          setMessages(
+            (
+              current
+            ) => [
+              ...current,
+              {
+                role:
+                  "ai",
+                text:
+                  error instanceof
+                    Error
+                    ? error.message
+                    : "Could not send your message to reception.",
+              },
+            ]
+          );
+        } finally {
+          setIsSending(
+            false
+          );
+        }
+
+        return;
+      }
+
       try {
         const formData =
           new FormData();
@@ -617,13 +1079,48 @@ export default function FeatureSelectionScreen({
 
         if (
           !response.ok ||
-          !data.reply
+          (!data.reply &&
+            !data.humanMode)
         ) {
           throw new Error(
             data.error ??
               data.reply ??
               "Chat request failed"
           );
+        }
+
+        if (
+          data.humanMode &&
+          data.handover
+        ) {
+          if (
+            data.handover.status ===
+              "Pending" ||
+            data.handover.status ===
+              "Active"
+          ) {
+            setHandoverStatus(
+              data.handover.status
+            );
+
+            setHandoverId(
+              data.handover.id
+            );
+
+            previousHandoverStatusRef.current =
+              data.handover.status;
+          }
+
+          if (
+            data.phone ||
+            data.handover.phone
+          ) {
+            setHandoverPhone(
+              data.phone ??
+                data.handover.phone ??
+                handoverPhone
+            );
+          }
         }
 
         const startsDoctorBooking =
@@ -646,21 +1143,24 @@ export default function FeatureSelectionScreen({
           );
         }
 
-        setMessages(
-          (
-            prev
-          ) => [
-            ...prev,
+        if (
+          data.reply
+        ) {
+          setMessages(
+            (
+              prev
+            ) => [
+              ...prev,
 
-            {
-              role:
-                "ai",
+              {
+                role:
+                  "ai",
 
-              text:
-                data.reply!,
+                text:
+                  data.reply ?? "",
 
-              inputMode:
-                "text",
+                inputMode:
+                  "text",
 
               intent:
                 data.intent,
@@ -697,11 +1197,12 @@ export default function FeatureSelectionScreen({
               symptomCard:
                 data.symptomCard,
 
-              documentResult:
-                data.documentResult,
-            },
-          ]
-        );
+                documentResult:
+                  data.documentResult,
+              },
+            ]
+          );
+        }
 
         if (
           data.bookingConfirmed ||
@@ -770,6 +1271,111 @@ export default function FeatureSelectionScreen({
       if (
         isSending
       ) {
+        return;
+      }
+
+      if (
+        handoverStatus
+      ) {
+        setIsSending(
+          true
+        );
+
+        try {
+          const form =
+            new FormData();
+
+          form.append(
+            "audio",
+            audioBlob,
+            "patient-handover.webm"
+          );
+
+          form.append(
+            "sessionId",
+            sessionId
+          );
+
+          form.append(
+            "firstName",
+            visitor.firstName
+          );
+
+          form.append(
+            "email",
+            visitor.email
+          );
+
+          const response =
+            await fetch(
+              `${backendBaseUrl}/api/chat/handover/voice`,
+              {
+                method:
+                  "POST",
+                body:
+                  form,
+              }
+            );
+
+          const data =
+            (await response.json()) as {
+              error?: string;
+              transcript?: string;
+            };
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              data.error ??
+                "Could not send voice message to reception"
+            );
+          }
+
+          if (
+            data.transcript
+          ) {
+            setMessages(
+              (
+                current
+              ) => [
+                ...current,
+                {
+                  role:
+                    "user",
+                  text:
+                    data.transcript!,
+                  inputMode:
+                    "voice",
+                },
+              ]
+            );
+          }
+        } catch (
+          error
+        ) {
+          setMessages(
+            (
+              current
+            ) => [
+              ...current,
+              {
+                role:
+                  "ai",
+                text:
+                  error instanceof
+                    Error
+                    ? error.message
+                    : "Could not send your voice message to reception.",
+              },
+            ]
+          );
+        } finally {
+          setIsSending(
+            false
+          );
+        }
+
         return;
       }
 
@@ -1065,7 +1671,7 @@ export default function FeatureSelectionScreen({
       </h2>
 
       {/* Feature cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <FeatureCard
           title="Book Appointment"
           description="Schedule visit with specialist"
@@ -1108,6 +1714,17 @@ export default function FeatureSelectionScreen({
         />
 
         <FeatureCard
+          title="Human Support"
+          description="Chat with reception or call us"
+          icon={
+            <Headphones className="h-5 w-5" />
+          }
+          onClick={() =>
+            void requestHumanSupport()
+          }
+        />
+
+        <FeatureCard
           title="Check Report"
           description="Access medical reports"
           icon={
@@ -1135,6 +1752,37 @@ export default function FeatureSelectionScreen({
           }
         />
       </div>
+
+      {handoverStatus ? (
+        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold">
+                {handoverStatus ===
+                "Active"
+                  ? "Reception has joined the conversation"
+                  : "Waiting for Medicare reception"}
+              </div>
+
+              <div className="mt-1 text-xs text-sky-700">
+                AI replies are paused while human support is {handoverStatus.toLowerCase()}.
+                {handoverId ? ` Support request #${handoverId}.` : ""}
+              </div>
+            </div>
+
+            <a
+              href={`tel:${handoverPhone.replace(
+                /\s+/g,
+                ""
+              )}`}
+              className="inline-flex items-center gap-2 rounded-xl bg-sky-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-800"
+            >
+              <Phone className="h-4 w-4" />
+              Call {handoverPhone}
+            </a>
+          </div>
+        </div>
+      ) : null}
 
       {/* Chat terminal area */}
       <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-inner">
@@ -1201,9 +1849,20 @@ export default function FeatureSelectionScreen({
                     m.role ===
                     "ai"
                       ? "bg-teal-100 text-slate-800"
-                      : "bg-teal-600 text-white"
+                      : m.role ===
+                          "admin"
+                        ? "border border-sky-200 bg-sky-50 text-sky-900"
+                        : "bg-teal-600 text-white"
                   }`}
                 >
+                  {m.role ===
+                  "admin" ? (
+                    <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                      <Headphones className="h-3 w-3" />
+                      Medicare Reception
+                    </div>
+                  ) : null}
+
                   {m.role ===
                   "ai" ? (
                     <>

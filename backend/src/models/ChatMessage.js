@@ -12,7 +12,7 @@ const ChatMessage = sequelize.define('ChatMessage', {
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM('assistant', 'user', 'system'),
+    type: DataTypes.ENUM('assistant', 'user', 'system', 'admin'),
     allowNull: false,
   },
   content: {
