@@ -6,955 +6,1340 @@ type ChatMessage = {
 };
 
 type ChatDoctor = {
-  id: number | string;
-  name: string;
+  id?: number | string;
+  doctorId?: number | string;
+  doctorName?: string;
+  name?: string;
   specialization?: string | null;
   designation?: string | null;
   profileImageUrl?: string | null;
   yearsOfExperience?: number | null;
-  availableTimes?: string[] | string | Record<string, unknown> | null;
   weeklySchedule?: Record<string, unknown>;
-};
-
-type BookingStep = "date" | "time" | "patient" | "none";
-type WebhookTimeSlot = string | {
-  label?: string;
-  value?: string;
-  time?: string;
-  booked?: boolean;
-  isBooked?: boolean;
-  available?: boolean;
+  availableTimes?: string[] | string | Record<string, unknown> | null;
 };
 
 type ChatRequest = {
-  messages: ChatMessage[];
-  context?: ChatContext;
+  messages?: ChatMessage[];
   sessionId?: string;
   firstName?: string;
   email?: string;
-  bookingAction?: "start_booking" | "check_time_slots" | "select_time_slot";
+  bookingAction?:
+    | "start_booking"
+    | "check_time_slots"
+    | "select_time_slot"
+    | "cancel_appointment"
+    | "reschedule_appointment";
   selectedDoctor?: ChatDoctor | string;
   appointmentDate?: string;
   appointmentTime?: string;
   displayDate?: string;
   dayName?: string;
-  documentType?: "MEDICAL_REPORT" | "PRESCRIPTION";
-};
-
-type PublicDoctor = {
-  id: number | string;
-  name?: string | null;
-  specialization?: string | null;
-  designation?: string | null;
-  profileImageUrl?: string | null;
-  yearsOfExperience?: number | null;
-};
-
-type SymptomCardData = {
-  summary: string;
-  recommendation?: string;
-  recommendedDoctor?: ChatDoctor;
-};
-
-type BookingDraft = {
-  step: "none" | "doctor" | "datetime" | "patient";
-  doctorId?: number | string;
-  doctorName?: string;
-  appointmentDate?: string;
-  appointmentTime?: string;
-  patientName?: string;
-  patientEmail?: string;
-  patientPhone?: string;
-};
-
-type RescheduleDraft = {
-  step: "none" | "lookup" | "datetime";
-  appointmentId?: string;
-  patientEmail?: string;
-};
-
-type CancelDraft = {
-  step: "none" | "lookup" | "reason";
-  appointmentId?: string;
-  patientEmail?: string;
+  appointmentId?: string | number;
   cancellationReason?: string;
+  newAppointmentDate?: string;
+  newAppointmentTime?: string;
+  audioBase64?: string;
+  mimeType?: string;
+  requestVoiceReply?: boolean;
+  documentType?:
+    | "PRESCRIPTION"
+    | "MEDICAL_REPORT"
+    | "LAB_REPORT"
+    | "OTHER_MEDICAL_DOCUMENT";
+  documentFile?: File;
+  documentId?: string;
 };
 
-type ChatContext = {
-  bookingDraft?: BookingDraft;
-  rescheduleDraft?: RescheduleDraft;
-  cancelDraft?: CancelDraft;
+type CalendarDay = {
+  date: string;
+  displayDate?: string;
+  dayName?: string;
+  available?: boolean;
+  timeSlots?: string[];
 };
 
-const isDoctorAvailabilityQuery = (text: string) => {
-  return /available\s+doctors|who\s+are\s+the\s+doctors|list\s+.*doctors/i.test(text);
+type AssistantResponse = {
+  intent?: string;
+  reply?: string;
+  transcript?: string;
+  message?: string;
+  cards?: ChatDoctor[];
+  doctors?: ChatDoctor[];
+  timeSlots?: unknown[];
+  availableTimeSlots?: unknown[];
+  calendar?: CalendarDay[] | null;
+  selectedDoctor?: ChatDoctor | null;
+  selectedDate?: string;
+  selectedTime?: string;
+  appointmentOperation?: "cancelled" | "rescheduled" | "none";
+  rescheduleMode?: boolean;
+  bookingStep?: "date" | "time" | "patient" | "none";
+  bookingConfirmed?: boolean;
+  success?: boolean;
+  appointmentId?: string | number;
+  appointment?: {
+    id?: string | number;
+    [key: string]: unknown;
+  } | null;
+  sessionId?: string;
+  email?: string;
+  voiceMode?: boolean;
+  audioBase64?: string;
+  mimeType?: string;
+  humanMode?: boolean;
+  phone?: string;
+  handover?: {
+    id: number;
+    status: "Pending" | "Active" | "Resolved";
+    phone?: string;
+  } | null;
+  documentResult?: {
+    documentType: string;
+    success: boolean;
+    error?: boolean | string;
+    message?: string;
+    timestamp?: string;
+    card?: Record<string, unknown>;
+    data?: Record<string, unknown>;
+  };
 };
 
-const isBookingIntent = (text: string) => {
-  return /book\s+an?\s+appointment|book\s+appointment|book\s+with/i.test(text);
-};
+function getBackendUrl() {
+  return (
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    process.env.BACKEND_BASE_URL ||
+    "http://localhost:5000"
+  );
+}
 
-const parseEmail = (text: string) => {
-  const match = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  return match ? match[0] : null;
-};
+function isHumanSupportRequest(message: string) {
+  return /\b(talk|speak|chat|connect)\s+(?:to|with)\s+(?:a\s+)?(?:human|person|receptionist|agent|staff|admin)\b|\bhuman\s+(?:support|help|agent)\b|\breal\s+person\b|\bneed\s+(?:a\s+)?(?:human|receptionist|agent)\b/i.test(
+    message
+  );
+}
 
-const parsePhone = (text: string) => {
-  const match = text.match(/(\+?\d[\d\s()\-]{7,})/);
-  return match ? match[0].replace(/\s+/g, " ").trim() : null;
-};
+function isDocumentExitRequest(message: string) {
+  const normalized =
+    String(
+      message ||
+      ""
+    )
+      .toLowerCase()
+      .replace(
+        /[.,!?]/g,
+        " "
+      )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
 
-const parseDate = (text: string) => {
-  const match = text.match(/(\d{4}-\d{2}-\d{2})/);
-  return match ? match[1] : null;
-};
+  return /^(exit document mode|exit report mode|stop document mode|stop checking (?:the )?(?:document|report|prescription)|finish (?:the )?(?:document|report|prescription)|done with (?:the )?(?:document|report|prescription)|go back to normal assistant|return to normal assistant)$/.test(
+    normalized
+  );
+}
 
-const parseTime = (text: string) => {
-  // Match time in formats: HH:MM, H:MM, HH.MM, H.MM, with optional am/pm
-  const match = text.match(/(\d{1,2})[:.]?(\d{2})\s*(am|pm)?/i);
-  if (!match) {
+async function getOpenHandover({
+  backendUrl,
+  sessionId,
+  email,
+}: {
+  backendUrl: string;
+  sessionId: string;
+  email: string;
+}) {
+  try {
+    const response = await fetch(
+      `${backendUrl}/api/chat/handover/status/${encodeURIComponent(
+        sessionId
+      )}?email=${encodeURIComponent(email)}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      handover?: AssistantResponse["handover"];
+      phone?: string;
+    };
+
+    const status = data.handover?.status;
+
+    return status === "Pending" || status === "Active"
+      ? {
+          handover: data.handover,
+          phone: data.phone ?? data.handover?.phone ?? "",
+        }
+      : null;
+  } catch {
     return null;
   }
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const meridiem = match[3]?.toLowerCase();
-  
-  // Handle 12-hour to 24-hour conversion
-  if (meridiem === "pm" && hours < 12) {
-    hours += 12;
+}
+
+function mapBookingAction(action: ChatRequest["bookingAction"] | undefined) {
+  switch (action) {
+    case "start_booking":
+      return "select_doctor";
+
+    case "check_time_slots":
+      return "select_date";
+
+    case "select_time_slot":
+      return "confirm_booking";
+
+    case "cancel_appointment":
+      return "cancel_appointment";
+
+    case "reschedule_appointment":
+      return "reschedule_appointment";
+
+    default:
+      return "";
   }
-  if (meridiem === "am" && hours === 12) {
-    hours = 0;
-  }
-  
-  // Validate time ranges
-  if (hours < 0 || hours > 23 || parseInt(minutes, 10) < 0 || parseInt(minutes, 10) > 59) {
+}
+
+function normalizeDoctor(doctor: ChatDoctor | string | undefined) {
+  if (!doctor) {
     return null;
   }
-  
-  const paddedHours = hours.toString().padStart(2, "0");
-  return `${paddedHours}:${minutes}`;
-};
 
-const parseAppointmentId = (text: string) => {
-  const match = text.match(/\b(\d{1,10})\b/);
-  return match ? match[1] : null;
-};
+  if (typeof doctor === "string") {
+    return {
+      name: doctor,
+      doctorName: doctor,
+    };
+  }
 
-const isRescheduleIntent = (text: string) => {
-  return /reschedule|change\s+appointment|move\s+appointment/i.test(text);
-};
+  return {
+    ...doctor,
+    id: doctor.id ?? doctor.doctorId,
+    doctorId: doctor.doctorId ?? doctor.id,
+    name: doctor.name ?? doctor.doctorName,
+    doctorName: doctor.doctorName ?? doctor.name,
+    weeklySchedule: doctor.weeklySchedule ?? doctor.availableTimes ?? {},
+  };
+}
 
-const isCancelIntent = (text: string) => {
-  return /cancel\s+appointment|cancel\s+my\s+appointment|delete\s+appointment/i.test(text);
-};
-
-const normalizeName = (value: string) => value.trim().toLowerCase();
-
-const matchDoctorsByName = (doctors: PublicDoctor[], input: string) => {
-  const normalizedInput = normalizeName(input);
-  if (!normalizedInput) {
+function normalizeTimeSlots(slots: unknown) {
+  if (!Array.isArray(slots)) {
     return [];
   }
 
-  return doctors.filter((doctor) => {
-    const name = doctor.name ? normalizeName(doctor.name) : "";
-    return name.includes(normalizedInput) || normalizedInput.includes(name);
-  });
-};
+  return slots
+    .map((slot) => {
+      if (typeof slot === "string") {
+        return {
+          label: slot,
+          booked: false,
+        };
+      }
 
-const formatDoctorList = (doctors: PublicDoctor[]) => {
-  if (doctors.length === 0) {
-    return "I do not see any doctors in the system yet. Please ask an administrator to add doctors first.";
-  }
+      if (typeof slot !== "object" || slot === null) {
+        return null;
+      }
 
-  const lines = doctors.map((doctor, index) => {
-    const specialization = doctor.specialization ? ` — ${doctor.specialization}` : "";
-    const designation = doctor.designation ? `, ${doctor.designation}` : "";
-    const experience =
-      typeof doctor.yearsOfExperience === "number"
-        ? ` (Experience: ${doctor.yearsOfExperience} years)`
-        : "";
-    const name = doctor.name ?? "Doctor";
-    return `${index + 1}. ${name}${specialization}${designation}${experience}`;
-  });
+      const value = slot as Record<string, unknown>;
+      const label = String(value.label ?? value.value ?? value.time ?? "");
 
-  return [
-    "Here are the doctors currently listed for appointments:",
-    "",
-    ...lines,
-    "",
-    "Tell me who you would like to see and your preferred date and time, and I will check availability."
-  ].join("\n");
-};
+      if (!label) {
+        return null;
+      }
 
-export async function POST(request: Request) {
-  let payload: ChatRequest;
-  let image: File | undefined;
-
-  if (request.headers.get("content-type")?.includes("multipart/form-data")) {
-    const formData = await request.formData();
-    const messagesValue = formData.get("messages");
-    const imageValue = formData.get("image");
-
-    if (typeof messagesValue !== "string") {
-      return NextResponse.json({ error: "Messages are required" }, { status: 400 });
-    }
-
-    try {
-      payload = {
-        messages: JSON.parse(messagesValue) as ChatMessage[],
-        sessionId: String(formData.get("sessionId") ?? ""),
-        firstName: String(formData.get("firstName") ?? ""),
-        email: String(formData.get("email") ?? ""),
-        bookingAction: String(formData.get("bookingAction") ?? "") as ChatRequest["bookingAction"],
-        selectedDoctor: (() => {
-          const value = formData.get("selectedDoctor");
-          if (typeof value !== "string" || !value) return undefined;
-          try {
-            return JSON.parse(value) as ChatDoctor;
-          } catch {
-            return value;
-          }
-        })(),
-        appointmentDate: String(formData.get("appointmentDate") ?? ""),
-        appointmentTime: String(formData.get("appointmentTime") ?? ""),
-        displayDate: String(formData.get("displayDate") ?? ""),
-        dayName: String(formData.get("dayName") ?? ""),
-        documentType: String(formData.get("documentType") ?? "") as ChatRequest["documentType"]
+      return {
+        label,
+        booked:
+          value.booked === true ||
+          value.isBooked === true ||
+          value.available === false,
       };
-    } catch {
-      return NextResponse.json({ error: "Invalid messages payload" }, { status: 400 });
-    }
+    })
+    .filter(
+      (slot): slot is { label: string; booked: boolean } => slot !== null
+    );
+}
 
-    if (imageValue instanceof File) {
-      if (!imageValue.type.startsWith("image/")) {
-        return NextResponse.json({ error: "Only image uploads are supported" }, { status: 400 });
-      }
-      if (imageValue.size > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: "Image must be 10 MB or smaller" }, { status: 413 });
-      }
-      image = imageValue;
-    }
-  } else {
-    payload = (await request.json()) as ChatRequest;
-  }
+async function parseRequest(request: Request): Promise<ChatRequest> {
+  const contentType = request.headers.get("content-type") ?? "";
 
-  const {
-    messages,
-    context,
-    sessionId,
-    firstName,
-    email,
-    bookingAction,
-    selectedDoctor,
-    appointmentDate,
-    appointmentTime,
-    displayDate,
-    dayName,
-    documentType: requestedDocumentType
-  } = payload;
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const messagesRaw = formData.get("messages");
 
-  if (!messages || messages.length === 0) {
-    return NextResponse.json({ error: "No messages provided" }, { status: 400 });
-  }
+    let messages: ChatMessage[] | undefined;
 
-  const lastMessage = messages[messages.length - 1];
-  const backendBaseUrl = process.env.BACKEND_BASE_URL ?? "http://localhost:5000";
-  const logMessages = async (replyText: string) => {
-    if (!sessionId || !lastMessage || !firstName || !email) {
-      return false;
-    }
-
-    try {
-      const historyResponse = await fetch(`${backendBaseUrl}/api/chat/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          firstName,
-          email,
-          messages: [
-            { role: lastMessage.role, content: lastMessage.content },
-            { role: "assistant", content: replyText }
-          ]
-        })
-      });
-
-      if (!historyResponse.ok) {
-        console.error("Chat history log failed:", await historyResponse.text());
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.error("Chat history log failed:", error);
-      return false;
-    }
-  };
-
-  const buildSymptomCard = async (
-    reply: string,
-    doctors?: ChatDoctor[],
-    explicitDoctor?: ChatDoctor
-  ): Promise<SymptomCardData | undefined> => {
-    if (!/(?:based on your symptoms|this symptom|symptoms you described)/i.test(reply)) {
-      return undefined;
-    }
-
-    const doctorMatch = reply.match(/found\s+(?:\d+|one|a|an)?\s*(.+?)\s+specialists?\b/i);
-    const requestedSpecialty = doctorMatch?.[1]
-      .replace(/\s*\([^)]*\)/g, "")
-      .trim()
-      .toLowerCase();
-    const matchesSpecialty = (doctor: ChatDoctor) => {
-      const specialization = doctor.specialization?.toLowerCase() ?? "";
-      return Boolean(requestedSpecialty && (
-        specialization.includes(requestedSpecialty) ||
-        requestedSpecialty.includes(specialization) ||
-        (requestedSpecialty === "gp" && specialization.includes("general practitioner"))
-      ));
-    };
-
-    let recommendedDoctor = explicitDoctor ?? doctors?.find(matchesSpecialty) ??
-      (doctors?.length === 1 ? doctors[0] : undefined);
-
-    if (!recommendedDoctor && requestedSpecialty) {
+    if (typeof messagesRaw === "string" && messagesRaw) {
       try {
-        const doctorResponse = await fetch(`${backendBaseUrl}/api/doctors/public`, { cache: "no-store" });
-        if (doctorResponse.ok) {
-          const availableDoctors = (await doctorResponse.json()) as PublicDoctor[];
-          const match = availableDoctors.find((doctor) => matchesSpecialty({
-            ...doctor,
-            name: doctor.name ?? "Doctor"
-          }));
-          if (match) {
-            recommendedDoctor = { ...match, name: match.name ?? "Doctor" };
-          }
-        }
-      } catch (error) {
-        console.error("Could not load the recommended doctor for symptom guidance:", error);
+        messages = JSON.parse(messagesRaw) as ChatMessage[];
+      } catch {
+        messages = undefined;
       }
     }
 
-    const doctorSectionIndex = reply.search(/based on your symptoms/i);
-    const assessment = (doctorSectionIndex >= 0 ? reply.slice(0, doctorSectionIndex) : reply).trim();
-    const recommendation = assessment.match(/(?:we recommend|you should|consider)[^.?!]*[.?!]?/i)?.[0];
-    const summary = recommendation
-      ? assessment.replace(recommendation, "").trim()
-      : assessment;
+    const doctorRaw = formData.get("selectedDoctor");
+    let selectedDoctor: ChatDoctor | string | undefined;
+
+    if (typeof doctorRaw === "string" && doctorRaw) {
+      try {
+        selectedDoctor = JSON.parse(doctorRaw) as ChatDoctor;
+      } catch {
+        selectedDoctor = doctorRaw;
+      }
+    }
 
     return {
-      summary: summary || "Here is guidance based on the symptoms you described.",
-      recommendation,
-      recommendedDoctor
+      messages,
+      sessionId: String(formData.get("sessionId") ?? ""),
+      firstName: String(formData.get("firstName") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      bookingAction: String(
+        formData.get("bookingAction") ?? ""
+      ) as ChatRequest["bookingAction"],
+      selectedDoctor,
+      appointmentDate: String(formData.get("appointmentDate") ?? ""),
+      appointmentTime: String(formData.get("appointmentTime") ?? ""),
+      displayDate: String(formData.get("displayDate") ?? ""),
+      dayName: String(formData.get("dayName") ?? ""),
+      appointmentId: String(formData.get("appointmentId") ?? ""),
+      cancellationReason: String(formData.get("cancellationReason") ?? ""),
+      newAppointmentDate: String(formData.get("newAppointmentDate") ?? ""),
+      newAppointmentTime: String(formData.get("newAppointmentTime") ?? ""),
+      audioBase64: String(formData.get("audioBase64") ?? ""),
+      mimeType: String(formData.get("mimeType") ?? ""),
+      requestVoiceReply:
+        String(formData.get("requestVoiceReply") ?? "").toLowerCase() ===
+        "true",
+      documentType: String(
+        formData.get("documentType") ?? ""
+      ) as ChatRequest["documentType"],
+      documentId: String(
+        formData.get("documentId") ?? ""
+      ),
+      documentFile:
+        formData.get("image") instanceof File
+          ? (formData.get("image") as File)
+          : formData.get("document") instanceof File
+            ? (formData.get("document") as File)
+            : undefined,
     };
-  };
-
-  const n8nWebhookUrl = process.env.N8N_CHAT_WEBHOOK_URL;
-
-  if (image && !n8nWebhookUrl) {
-    return NextResponse.json(
-      { error: "Prescription image processing is not configured. Please contact the clinic." },
-      { status: 503 }
-    );
   }
 
-  if (n8nWebhookUrl && lastMessage?.role === "user") {
-    try {
-      const webhookBody = image ? new FormData() : null;
-      const selectedDoctorRecord: Record<string, unknown> | undefined = typeof selectedDoctor === "string"
-        ? { doctorName: selectedDoctor }
-        : selectedDoctor
-          ? {
-              ...selectedDoctor,
-              doctorId: selectedDoctor.id,
-              doctorName: selectedDoctor.name,
-              weeklySchedule: selectedDoctor.weeklySchedule ?? selectedDoctor.availableTimes
-            }
-          : undefined;
-      const messagePayload = {
-        chatInput: lastMessage.content,
-        message: lastMessage.content,
-        messages,
-        sessionId: sessionId ?? "anonymous",
-        firstName,
-        email,
-        action: image
-          ? requestedDocumentType === "MEDICAL_REPORT"
-            ? "analyze_medical_report"
-            : "analyze_prescription"
-          : bookingAction === "check_time_slots"
-          ? "select_date"
-          : bookingAction === "select_time_slot"
-            ? "confirm_booking"
-            : bookingAction === "start_booking"
-              ? "select_doctor"
-              : undefined,
-        intent: image
-          ? requestedDocumentType === "MEDICAL_REPORT"
-            ? "medical_report"
-            : "prescription"
-          : undefined,
-        documentType: image ? requestedDocumentType ?? "PRESCRIPTION" : undefined,
-        bookingAction,
-        selectedDoctor: selectedDoctorRecord,
-        weeklySchedule: selectedDoctorRecord?.weeklySchedule,
-        doctorId: selectedDoctorRecord?.doctorId,
-        doctorName: selectedDoctorRecord?.doctorName,
-        selectedDate: appointmentDate,
-        appointmentDate,
-        displayDate,
-        dayName,
-        selectedTime: appointmentTime,
-        appointmentTime
-      };
+  return (await request.json()) as ChatRequest;
+}
 
-      if (webhookBody && image) {
-        for (const [key, value] of Object.entries(messagePayload)) {
-          webhookBody.set(key, typeof value === "string" ? value : JSON.stringify(value));
-        }
-        webhookBody.set("image", image, image.name);
-      }
+/*
+ * Persist one successful user/assistant turn to the backend chat history.
+ *
+ * This is intentionally best-effort:
+ * - assistant responses must still reach the user if history persistence fails;
+ * - both text and voice use the same sessionId;
+ * - for voice, the STT transcript is stored as the user message.
+ */
+async function saveChatHistory({
+  backendUrl,
+  sessionId,
+  firstName,
+  email,
+  userMessage,
+  assistantReply,
+}: {
+  backendUrl: string;
+  sessionId: string;
+  firstName: string;
+  email: string;
+  userMessage: string;
+  assistantReply: string;
+}) {
+  const cleanSessionId = sessionId.trim();
+  const cleanFirstName = firstName.trim();
+  const cleanEmail = email.trim();
+  const cleanUserMessage = userMessage.trim();
+  const cleanAssistantReply = assistantReply.trim();
 
-      const response = await fetch(n8nWebhookUrl, {
-        method: "POST",
-        ...(webhookBody
-          ? { body: webhookBody }
-          : {
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(messagePayload)
-            })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Webhook returned ${response.status}`);
-      }
-
-      const responseData = (await response.json()) as {
-        output?: string;
-        response?: string;
-        responseMessage?: string;
-        text?: string;
-        reply?: string;
-        message?: string;
-        doctors?: ChatDoctor[];
-        recommendedDoctor?: ChatDoctor;
-        documentType?: string;
-        success?: boolean;
-        error?: boolean | string;
-        data?: Record<string, unknown>;
-        card?: Record<string, unknown>;
-        timestamp?: string;
-        bookingStep?: BookingStep;
-        intent?: string;
-        bookingConfirmed?: boolean;
-        appointmentId?: string | number;
-        id?: string | number;
-        doctorName?: string;
-        selectedDate?: string;
-        selectedTime?: string;
-        timeSlots?: WebhookTimeSlot[] | string;
-        availableTimeSlots?: WebhookTimeSlot[] | string;
-      } | Array<{
-        output?: string;
-        response?: string;
-        responseMessage?: string;
-        text?: string;
-        reply?: string;
-        message?: string;
-        doctors?: ChatDoctor[];
-        recommendedDoctor?: ChatDoctor;
-        documentType?: string;
-        success?: boolean;
-        error?: boolean | string;
-        data?: Record<string, unknown>;
-        card?: Record<string, unknown>;
-        timestamp?: string;
-        bookingStep?: BookingStep;
-        intent?: string;
-        bookingConfirmed?: boolean;
-        appointmentId?: string | number;
-        id?: string | number;
-        doctorName?: string;
-        selectedDate?: string;
-        selectedTime?: string;
-        timeSlots?: WebhookTimeSlot[] | string;
-        availableTimeSlots?: WebhookTimeSlot[] | string;
-      }>;
-      const data = Array.isArray(responseData) ? responseData[0] : responseData;
-      const documentDetails = data.data ?? {};
-      const documentType = data.documentType ?? String(documentDetails.documentType ?? "");
-      const hasDocumentDetails = Boolean(documentType) && Boolean(data.card || Object.keys(documentDetails).length);
-      const documentResult = image && hasDocumentDetails
-        ? {
-            documentType,
-            success: data.success !== false && data.error !== true,
-            error: data.error,
-            message: data.message,
-            timestamp: data.timestamp,
-            card: data.card ?? (Object.keys(documentDetails).length ? documentDetails : undefined),
-            data: Object.keys(documentDetails).length ? documentDetails : undefined
-          }
-        : undefined;
-      const doctors = Array.isArray(data.doctors) ? data.doctors : undefined;
-      const rawTimeSlots = Array.isArray(data.timeSlots)
-        ? data.timeSlots
-        : typeof data.timeSlots === "string"
-          ? JSON.parse(data.timeSlots) as WebhookTimeSlot[]
-          : Array.isArray(data.availableTimeSlots)
-          ? data.availableTimeSlots
-          : typeof data.availableTimeSlots === "string"
-            ? JSON.parse(data.availableTimeSlots) as WebhookTimeSlot[]
-            : undefined;
-      const timeSlots = rawTimeSlots
-        ?.map((slot) => typeof slot === "string"
-          ? { label: slot, booked: false }
-          : {
-              label: slot.label ?? slot.value ?? slot.time ?? "",
-              booked: slot.booked === true || slot.isBooked === true || slot.available === false
-            })
-        .filter((slot) => Boolean(slot.label));
-      const bookingStep = data.bookingStep ??
-        (data.intent === "time_selection" || timeSlots?.length ? "time" : undefined);
-      const bookingConfirmed = data.bookingConfirmed === true ||
-        (bookingAction === "select_time_slot" && data.success === true) ||
-        data.intent === "booking_confirmed" || data.intent === "appointment_booked";
-      const rawReply = data.responseMessage ?? data.output ?? data.response ?? data.text ?? data.reply ?? data.message;
-      let reply = rawReply;
-
-      if (rawReply) {
-        try {
-          const parsedReply = JSON.parse(rawReply) as {
-            responseMessage?: string;
-            reply?: string;
-            output?: string;
-            text?: string;
-            message?: string;
-          };
-          reply = parsedReply.responseMessage ?? parsedReply.reply ?? parsedReply.output ??
-            parsedReply.text ?? parsedReply.message ?? rawReply;
-        } catch {
-          reply = rawReply;
-        }
-      }
-
-      reply ??=
-        (doctors?.length ? "Here are the doctors currently available:" : undefined) ??
-        (documentResult
-          ? `Your ${documentType.replaceAll("_", " ").toLowerCase()} analysis is ready.`
-          : undefined) ??
-        (bookingConfirmed
-          ? `Your appointment with ${data.doctorName ?? (typeof selectedDoctorRecord?.doctorName === "string" ? selectedDoctorRecord.doctorName : "the selected doctor")} is confirmed for ${data.selectedDate ?? appointmentDate ?? "the selected date"} at ${data.selectedTime ?? appointmentTime ?? "the selected time"}.`
-          : undefined);
-
-      if (!reply) {
-        throw new Error("Webhook response did not contain output text");
-      }
-
-      const historySaved = await logMessages(reply);
-      const symptomCard = await buildSymptomCard(reply, doctors, data.recommendedDoctor);
-      return NextResponse.json({
-        reply,
-        historySaved,
-        symptomCard,
-        documentResult,
-        doctors,
-        bookingStep,
-        timeSlots,
-        bookingConfirmed,
-        appointmentId: data.appointmentId ?? data.id
-      });
-    } catch (error) {
-      console.error("n8n chat webhook failed:", error);
-      return NextResponse.json(
-        {
-          error: image
-            ? "Could not process the prescription image. Please try again shortly."
-            : "I could not reach the assistant right now. Please try again shortly."
-        },
-        { status: 502 }
-      );
-    }
-  }
-
-  const bookingDraft: BookingDraft = context?.bookingDraft ?? { step: "none" };
-  const rescheduleDraft: RescheduleDraft = context?.rescheduleDraft ?? { step: "none" };
-  const cancelDraft: CancelDraft = context?.cancelDraft ?? { step: "none" };
-
-  const respondWithLog = async (payload: {
-    reply: string;
-    nextContext?: ChatContext;
-    doctors?: ChatDoctor[];
-  }) => {
-    const historySaved = await logMessages(payload.reply);
-    const symptomCard = await buildSymptomCard(payload.reply, payload.doctors);
-    return NextResponse.json({ ...payload, historySaved, symptomCard });
-  };
-  if (lastMessage?.role === "user" && isDoctorAvailabilityQuery(lastMessage.content)) {
-    try {
-      const response = await fetch(`${backendBaseUrl}/api/doctors/public`);
-      if (!response.ok) {
-        return NextResponse.json(
-          { reply: "I could not retrieve the doctor list right now. Please try again shortly." },
-          { status: 200 }
-        );
-      }
-      const doctors = ((await response.json()) as PublicDoctor[]).map((doctor) => ({
-        ...doctor,
-        name: doctor.name ?? "Doctor"
-      }));
-      return respondWithLog({ reply: formatDoctorList(doctors), doctors });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return NextResponse.json(
-        { reply: `I could not reach the doctor directory (${message}). Please try again shortly.` },
-        { status: 200 }
-      );
-    }
-  }
-
-  if (lastMessage?.role === "user" && (isBookingIntent(lastMessage.content) || bookingDraft.step !== "none")) {
-    const requestedName = lastMessage.content.replace(/book\s+an?\s+appointment\s*(with|from)?/i, "").trim();
-    try {
-      const response = await fetch(`${backendBaseUrl}/api/doctors/public`);
-      if (!response.ok) {
-        return NextResponse.json({ reply: "I could not reach the doctor directory right now. Please try again." });
-      }
-      const doctors = (await response.json()) as PublicDoctor[];
-
-      if (bookingDraft.step === "none") {
-        const matches = matchDoctorsByName(doctors, requestedName);
-
-        if (matches.length === 1) {
-          const doctor = matches[0];
-          const doctorName = doctor.name ?? "the selected doctor";
-          const specialty = doctor.specialization ? ` (${doctor.specialization})` : "";
-          const nextContext: ChatContext = {
-            bookingDraft: {
-              step: "datetime",
-              doctorId: doctor.id,
-              doctorName
-            }
-          };
-          return respondWithLog({
-            reply: `Great choice. I can schedule an appointment with ${doctorName}${specialty}. Please share your preferred date (YYYY-MM-DD) and time (HH:MM).`,
-            nextContext
-          });
-        }
-
-        if (matches.length > 1) {
-          const options = matches
-            .map((doctor, index) => {
-              const name = doctor.name ?? "Doctor";
-              const specialization = doctor.specialization ? ` — ${doctor.specialization}` : "";
-              return `${index + 1}. ${name}${specialization}`;
-            })
-            .join("\n");
-          return respondWithLog({
-            reply: `I found multiple matches. Which doctor would you like?\n\n${options}`,
-            nextContext: { bookingDraft }
-          });
-        }
-
-        return respondWithLog({
-          reply: "I could not find that doctor in the system. Please check the name or ask for the available doctors list."
-        });
-      }
-
-      if (bookingDraft.step === "datetime") {
-        const appointmentDate = parseDate(lastMessage.content);
-        const appointmentTime = parseTime(lastMessage.content);
-        if (!appointmentDate || !appointmentTime) {
-          return respondWithLog({
-            reply: "Please provide the date and time in this format: YYYY-MM-DD at HH:MM (e.g., 2026-02-20 at 14:30).",
-            nextContext: { bookingDraft }
-          });
-        }
-
-        const nextContext: ChatContext = {
-          bookingDraft: {
-            ...bookingDraft,
-            step: "patient",
-            appointmentDate,
-            appointmentTime
-          }
-        };
-
-        return respondWithLog({
-          reply: "Thanks. Please share your full name, email, and phone number to confirm the booking.",
-          nextContext
-        });
-      }
-
-      if (bookingDraft.step === "patient") {
-        const patientEmail = parseEmail(lastMessage.content) ?? bookingDraft.patientEmail;
-        const patientPhone = parsePhone(lastMessage.content) ?? bookingDraft.patientPhone;
-        const patientName = bookingDraft.patientName ?? lastMessage.content.replace(patientEmail ?? "", "").replace(patientPhone ?? "", "").trim();
-
-        const missingFields = [] as string[];
-        if (!patientName) missingFields.push("full name");
-        if (!patientEmail) missingFields.push("email");
-        if (!patientPhone) missingFields.push("phone number");
-
-        if (missingFields.length > 0) {
-          return respondWithLog({
-            reply: `Please provide your ${missingFields.join(", ")} to confirm the booking.`,
-            nextContext: {
-              bookingDraft: {
-                ...bookingDraft,
-                patientName,
-                patientEmail,
-                patientPhone
-              }
-            }
-          });
-        }
-
-        const response = await fetch(`${backendBaseUrl}/api/appointments/public`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            doctorId: bookingDraft.doctorId,
-            patientName,
-            patientEmail,
-            patientPhone,
-            appointmentDate: bookingDraft.appointmentDate,
-            appointmentTime: bookingDraft.appointmentTime
-          })
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          return respondWithLog({
-            reply: `I could not confirm the appointment. ${errorText || "Please try another time."}`,
-            nextContext: { bookingDraft: { step: "none" } }
-          });
-        }
-
-        const data = (await response.json()) as { appointmentId?: number | string };
-        const doctorName = bookingDraft.doctorName ?? "the selected doctor";
-        const confirmation = `Your appointment with ${doctorName} is requested for ${bookingDraft.appointmentDate} at ${bookingDraft.appointmentTime}. Your reference number is ${data.appointmentId}.`;
-        return respondWithLog({
-          reply: confirmation,
-          nextContext: { bookingDraft: { step: "none" } }
-        });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return NextResponse.json({
-        reply: `I could not reach the doctor directory (${message}). Please try again shortly.`
-      });
-    }
-  }
-
-  if (lastMessage?.role === "user" && (isRescheduleIntent(lastMessage.content) || rescheduleDraft.step !== "none")) {
-    if (rescheduleDraft.step === "none") {
-      const appointmentId = parseAppointmentId(lastMessage.content);
-      const patientEmail = parseEmail(lastMessage.content);
-      if (!appointmentId || !patientEmail) {
-        return respondWithLog({
-          reply: "Please share your appointment reference number and the email used for booking.",
-          nextContext: {
-            rescheduleDraft: {
-              step: "lookup",
-              appointmentId: appointmentId ?? undefined,
-              patientEmail: patientEmail ?? undefined
-            }
-          }
-        });
-      }
-      return respondWithLog({
-        reply: "Thanks. What new date (YYYY-MM-DD) and time (HH:MM) would you like?",
-        nextContext: {
-          rescheduleDraft: { step: "datetime", appointmentId, patientEmail }
-        }
-      });
-    }
-
-    if (rescheduleDraft.step === "lookup") {
-      const appointmentId = rescheduleDraft.appointmentId ?? parseAppointmentId(lastMessage.content);
-      const patientEmail = rescheduleDraft.patientEmail ?? parseEmail(lastMessage.content);
-      if (!appointmentId || !patientEmail) {
-        return respondWithLog({
-          reply: "Please provide both your appointment reference number and booking email.",
-          nextContext: {
-            rescheduleDraft: {
-              step: "lookup",
-              appointmentId: appointmentId ?? undefined,
-              patientEmail: patientEmail ?? undefined
-            }
-          }
-        });
-      }
-      return respondWithLog({
-        reply: "Got it. What new date (YYYY-MM-DD) and time (HH:MM) would you like?",
-        nextContext: {
-          rescheduleDraft: { step: "datetime", appointmentId, patientEmail }
-        }
-      });
-    }
-
-    if (rescheduleDraft.step === "datetime") {
-      const appointmentDate = parseDate(lastMessage.content);
-      const appointmentTime = parseTime(lastMessage.content);
-      if (!appointmentDate || !appointmentTime) {
-        return respondWithLog({
-          reply: "Please provide the new date and time in this format: YYYY-MM-DD at HH:MM.",
-          nextContext: { rescheduleDraft }
-        });
-      }
-
-      const response = await fetch(`${backendBaseUrl}/api/appointments/public/${rescheduleDraft.appointmentId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientEmail: rescheduleDraft.patientEmail,
-          appointmentDate,
-          appointmentTime
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return respondWithLog({
-          reply: `I could not reschedule the appointment. ${errorText || "Please try again."}`,
-          nextContext: { rescheduleDraft: { step: "none" } }
-        });
-      }
-
-      return respondWithLog({
-        reply: `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}.`,
-        nextContext: { rescheduleDraft: { step: "none" } }
-      });
-    }
-  }
-
-  if (lastMessage?.role === "user" && (isCancelIntent(lastMessage.content) || cancelDraft.step !== "none")) {
-    if (cancelDraft.step === "none") {
-      const appointmentId = parseAppointmentId(lastMessage.content);
-      const patientEmail = parseEmail(lastMessage.content);
-      if (!appointmentId || !patientEmail) {
-        return respondWithLog({
-          reply: "Please share your appointment reference number and the email used for booking.",
-          nextContext: {
-            cancelDraft: {
-              step: "lookup",
-              appointmentId: appointmentId ?? undefined,
-              patientEmail: patientEmail ?? undefined
-            }
-          }
-        });
-      }
-      return respondWithLog({
-        reply: "Would you like to add a brief cancellation reason? If not, reply 'no'.",
-        nextContext: {
-          cancelDraft: { step: "reason", appointmentId, patientEmail }
-        }
-      });
-    }
-
-    if (cancelDraft.step === "lookup") {
-      const appointmentId = cancelDraft.appointmentId ?? parseAppointmentId(lastMessage.content);
-      const patientEmail = cancelDraft.patientEmail ?? parseEmail(lastMessage.content);
-      if (!appointmentId || !patientEmail) {
-        return respondWithLog({
-          reply: "Please provide both your appointment reference number and booking email.",
-          nextContext: {
-            cancelDraft: {
-              step: "lookup",
-              appointmentId: appointmentId ?? undefined,
-              patientEmail: patientEmail ?? undefined
-            }
-          }
-        });
-      }
-      return respondWithLog({
-        reply: "Would you like to add a brief cancellation reason? If not, reply 'no'.",
-        nextContext: {
-          cancelDraft: { step: "reason", appointmentId, patientEmail }
-        }
-      });
-    }
-
-    if (cancelDraft.step === "reason") {
-      const cancellationReason = /^(no|none|skip)$/i.test(lastMessage.content.trim())
-        ? "Cancelled by patient"
-        : lastMessage.content.trim();
-
-      const response = await fetch(`${backendBaseUrl}/api/appointments/public/${cancelDraft.appointmentId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientEmail: cancelDraft.patientEmail,
-          cancellationReason
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return respondWithLog({
-          reply: `I could not cancel the appointment. ${errorText || "Please try again."}`,
-          nextContext: { cancelDraft: { step: "none" } }
-        });
-      }
-
-      return respondWithLog({
-        reply: "Your appointment has been cancelled. If you need anything else, just let me know.",
-        nextContext: { cancelDraft: { step: "none" } }
-      });
-    }
-  }
-
-  const model = process.env.OLLAMA_MODEL ?? "llama3.1:8b";
-  const configuredBaseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-  const baseUrl = configuredBaseUrl.replace("localhost", "127.0.0.1");
-  const geminiEnabled = (process.env.GEMINI_CHAT_ENABLED ?? "true") === "true";
-
-  try {
-    if (geminiEnabled) {
-      const geminiResponse = await fetch(`${backendBaseUrl}/api/ai/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages })
-      });
-
-      if (geminiResponse.ok) {
-        const data = (await geminiResponse.json()) as { reply?: string };
-        return respondWithLog({ reply: data.reply ?? "" });
-      }
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: false,
-      }),
-      signal: controller.signal,
+  if (
+    !cleanSessionId ||
+    !cleanFirstName ||
+    !cleanEmail ||
+    !cleanUserMessage ||
+    !cleanAssistantReply
+  ) {
+    console.warn("[chat history] skipped because required data is missing", {
+      hasSessionId: Boolean(cleanSessionId),
+      hasFirstName: Boolean(cleanFirstName),
+      hasEmail: Boolean(cleanEmail),
+      hasUserMessage: Boolean(cleanUserMessage),
+      hasAssistantReply: Boolean(cleanAssistantReply),
     });
 
-    clearTimeout(timeoutId);
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${backendUrl}/api/chat/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId: cleanSessionId,
+        firstName: cleanFirstName,
+        email: cleanEmail,
+        messages: [
+          {
+            role: "user",
+            content: cleanUserMessage,
+          },
+          {
+            role: "assistant",
+            content: cleanAssistantReply,
+          },
+        ],
+      }),
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(
+        "[chat history] backend save failed:",
+        response.status,
+        errorText
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[chat history] save error:", error);
+    return false;
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const payload = await parseRequest(request);
+
+    if (!payload.sessionId) {
       return NextResponse.json(
-        { error: "LLM request failed", details: errorText },
-        { status: 500 }
+        {
+          error: "sessionId is required",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const data = (await response.json()) as { message?: { content?: string } };
-    return respondWithLog({ reply: data.message?.content ?? "" });
+    if (!payload.email) {
+      return NextResponse.json(
+        {
+          error: "email is required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const hasAudio =
+      typeof payload.audioBase64 === "string" && payload.audioBase64.length > 100;
+
+    let message = "";
+
+    if (!hasAudio) {
+      const messages = payload.messages ?? [];
+      const lastMessage = messages[messages.length - 1];
+
+      if (!lastMessage || lastMessage.role !== "user") {
+        return NextResponse.json(
+          {
+            error: "Latest message must be a user message",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      message = lastMessage.content;
+    }
+
+    const backendUrl = getBackendUrl();
+
+    /*
+     * HUMAN HANDOVER
+     *
+     * Human-support requests never go to n8n/Gemini.
+     * While a handover is Pending/Active, AI replies are suspended.
+     */
+    if (!hasAudio && isHumanSupportRequest(message)) {
+      const handoverResponse = await fetch(
+        `${backendUrl}/api/chat/handover/request`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: payload.sessionId,
+            firstName: String(payload.firstName ?? ""),
+            email: payload.email,
+            reason: message.trim() || "Patient requested human support",
+          }),
+          cache: "no-store",
+        }
+      );
+
+      const handoverData = (await handoverResponse.json()) as {
+        error?: string;
+        reply?: string;
+        handover?: AssistantResponse["handover"];
+      };
+
+      if (!handoverResponse.ok) {
+        return NextResponse.json(
+          {
+            error: handoverData.error ?? "Could not request human support",
+            reply:
+              handoverData.error ??
+              "I could not request a receptionist right now. Please call Medicare Medical Center.",
+          },
+          {
+            status: handoverResponse.status,
+          }
+        );
+      }
+
+      return NextResponse.json({
+        reply:
+          handoverData.reply ??
+          "A receptionist has been requested for this conversation.",
+        intent: "human_handover_requested",
+        humanMode: true,
+        handover: handoverData.handover ?? null,
+        phone: handoverData.handover?.phone ?? "+94 11 234 5678",
+        sessionId: payload.sessionId,
+        email: payload.email,
+        historySaved: true,
+      });
+    }
+
+    const openHandover = await getOpenHandover({
+      backendUrl,
+      sessionId: payload.sessionId,
+      email: payload.email,
+    });
+
+    if (openHandover) {
+      if (hasAudio) {
+        return NextResponse.json(
+          {
+            error: "Human support is active",
+            reply:
+              "A Medicare receptionist is handling this conversation. Please type your message here, or call the medical center.",
+            intent: "human_handover_active",
+            humanMode: true,
+            handover: openHandover.handover,
+            phone: openHandover.phone,
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+
+      const patientMessageResponse = await fetch(
+        `${backendUrl}/api/chat/handover/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: payload.sessionId,
+            firstName: String(payload.firstName ?? ""),
+            email: payload.email,
+            content: message.trim(),
+          }),
+          cache: "no-store",
+        }
+      );
+
+      const patientMessageData = (await patientMessageResponse.json()) as {
+        error?: string;
+        handover?: AssistantResponse["handover"];
+      };
+
+      if (!patientMessageResponse.ok) {
+        return NextResponse.json(
+          {
+            error:
+              patientMessageData.error ??
+              "Could not send message to reception",
+          },
+          {
+            status: patientMessageResponse.status,
+          }
+        );
+      }
+
+      return NextResponse.json({
+        reply: "",
+        intent: "human_handover_message_sent",
+        humanMode: true,
+        handover:
+          patientMessageData.handover ??
+          openHandover.handover,
+        phone: openHandover.phone,
+        sessionId: payload.sessionId,
+        email: payload.email,
+        historySaved: true,
+      });
+    }
+
+    /*
+     * VOICE MEDICAL-DOCUMENT Q&A
+     *
+     * When document mode is active, voice is transcribed by the backend,
+     * answered against the private document with Gemini, and spoken back
+     * with ElevenLabs. Normal voice/n8n behavior remains unchanged outside
+     * document mode.
+     */
+    if (
+      hasAudio &&
+      payload.documentId
+    ) {
+      const cleanBase64 =
+        String(
+          payload.audioBase64 ||
+          ""
+        ).includes(
+          ","
+        )
+          ? String(
+              payload.audioBase64
+            ).split(
+              ","
+            )[1]
+          : String(
+              payload.audioBase64 ||
+              ""
+            );
+
+      if (!cleanBase64) {
+        return NextResponse.json(
+          {
+            error:
+              "Voice recording is missing.",
+            reply:
+              "I could not read that voice recording.",
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      const audioBytes =
+        Buffer.from(
+          cleanBase64,
+          "base64"
+        );
+
+      const voiceForm =
+        new FormData();
+
+      voiceForm.set(
+        "sessionId",
+        payload.sessionId
+      );
+
+      voiceForm.set(
+        "email",
+        payload.email
+      );
+
+      voiceForm.set(
+        "audio",
+        new Blob(
+          [
+            audioBytes,
+          ],
+          {
+            type:
+              payload.mimeType ||
+              "audio/webm",
+          }
+        ),
+        "medical-document-question.webm"
+      );
+
+      const voiceResponse =
+        await fetch(
+          `${backendUrl}/api/medical-documents/${encodeURIComponent(
+            payload.documentId
+          )}/ask-voice`,
+          {
+            method:
+              "POST",
+            body:
+              voiceForm,
+            cache:
+              "no-store",
+          }
+        );
+
+      const rawVoiceResponse =
+        await voiceResponse.text();
+
+      let voiceData: {
+        success?: boolean;
+        error?: string;
+        reply?: string;
+        transcript?: string;
+        intent?: string;
+        documentId?: string;
+        documentType?: string;
+        originalFileName?: string;
+        voiceMode?: boolean;
+        audioBase64?: string;
+        mimeType?: string;
+      };
+
+      try {
+        voiceData =
+          JSON.parse(
+            rawVoiceResponse
+          );
+      } catch {
+        console.error(
+          "[medical document voice] backend returned non-JSON response",
+          {
+            status:
+              voiceResponse.status,
+            body:
+              rawVoiceResponse.slice(
+                0,
+                500
+              ),
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Medical document voice service returned an invalid response.",
+            reply:
+              "I could not process that voice question about your document.",
+          },
+          {
+            status:
+              502,
+          }
+        );
+      }
+
+      if (
+        !voiceResponse.ok
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              voiceData.error ??
+              "Could not answer the voice medical document question.",
+            reply:
+              voiceData.error ??
+              "I could not answer that voice question about your document.",
+          },
+          {
+            status:
+              voiceResponse.status,
+          }
+        );
+      }
+
+      const transcript =
+        String(
+          voiceData.transcript ||
+          ""
+        ).trim();
+
+      const assistantReply =
+        String(
+          voiceData.reply ||
+          "I could not produce an explanation for that document."
+        ).trim();
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            transcript ||
+            "Voice question about uploaded medical document",
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        transcript,
+        intent:
+          voiceData.intent ??
+          "medical_document_question",
+        documentId:
+          voiceData.documentId ??
+          payload.documentId,
+        documentType:
+          voiceData.documentType,
+        originalFileName:
+          voiceData.originalFileName,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        voiceMode:
+          true,
+        audioBase64:
+          voiceData.audioBase64 ??
+          "",
+        mimeType:
+          voiceData.mimeType ??
+          "audio/mpeg",
+        historySaved,
+      });
+    }
+
+    /*
+     * SECURE MEDICAL-DOCUMENT UPLOAD
+     *
+     * Prescriptions/reports are stored by the backend in a PRIVATE
+     * Supabase Storage bucket. File bytes do not go to n8n/Gemini.
+     */
+    if (payload.documentFile) {
+      const uploadForm =
+        new FormData();
+
+      uploadForm.set(
+        "sessionId",
+        payload.sessionId
+      );
+
+      uploadForm.set(
+        "firstName",
+        String(
+          payload.firstName ??
+          ""
+        )
+      );
+
+      uploadForm.set(
+        "email",
+        payload.email
+      );
+
+      uploadForm.set(
+        "documentType",
+        payload.documentType ||
+          "OTHER_MEDICAL_DOCUMENT"
+      );
+
+      uploadForm.set(
+        "document",
+        payload.documentFile,
+        payload.documentFile.name
+      );
+
+      const uploadResponse =
+        await fetch(
+          `${backendUrl}/api/medical-documents/upload`,
+          {
+            method:
+              "POST",
+            body:
+              uploadForm,
+            cache:
+              "no-store",
+          }
+        );
+
+      const uploadRaw =
+        await uploadResponse.text();
+
+      let uploadData: {
+        success?: boolean;
+        error?: string;
+        reply?: string;
+        documentResult?: AssistantResponse["documentResult"];
+      };
+
+      try {
+        uploadData =
+          JSON.parse(
+            uploadRaw
+          ) as {
+            success?: boolean;
+            error?: string;
+            reply?: string;
+            documentResult?: AssistantResponse["documentResult"];
+          };
+      } catch {
+        console.error(
+          "[medical document upload] backend returned non-JSON response",
+          {
+            status:
+              uploadResponse.status,
+            body:
+              uploadRaw.slice(
+                0,
+                500
+              ),
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Medical document service returned an invalid response.",
+            reply:
+              "The medical document upload service is not available right now.",
+          },
+          {
+            status:
+              502,
+          }
+        );
+      }
+
+      if (!uploadResponse.ok) {
+        return NextResponse.json(
+          {
+            error:
+              uploadData.error ??
+              "Medical document upload failed",
+            reply:
+              uploadData.error ??
+              "I could not upload that medical document.",
+          },
+          {
+            status:
+              uploadResponse.status,
+          }
+        );
+      }
+
+      const documentType =
+        payload.documentType ||
+        "OTHER_MEDICAL_DOCUMENT";
+
+      const assistantReply =
+        String(
+          uploadData.reply ??
+          "Your medical document was uploaded securely."
+        ).trim();
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            `Uploaded a ${documentType
+              .toLowerCase()
+              .replaceAll(
+                "_",
+                " "
+              )}.`,
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        intent:
+          "medical_document_uploaded",
+        documentResult:
+          uploadData.documentResult,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        historySaved,
+      });
+    }
+
+    if (
+      !hasAudio &&
+      payload.documentId &&
+      isDocumentExitRequest(
+        message
+      )
+    ) {
+      const assistantReply =
+        "Document review mode has ended successfully. You can now continue with normal Medicare AI questions, book or manage an appointment, find a doctor, request human support, or upload another medical document.";
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            message,
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        intent:
+          "medical_document_exit",
+        documentId:
+          payload.documentId,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        historySaved,
+      });
+    }
+
+    /*
+     * MEDICAL DOCUMENT Q&A
+     *
+     * When the patient is in document-question mode, ask the backend
+     * to explain the already-uploaded private document with Gemini.
+     * The file remains in private Supabase Storage and is fetched
+     * server-side only.
+     */
+    if (
+      !hasAudio &&
+      payload.documentId &&
+      message.trim()
+    ) {
+      const documentResponse =
+        await fetch(
+          `${backendUrl}/api/medical-documents/${encodeURIComponent(
+            payload.documentId
+          )}/ask`,
+          {
+            method:
+              "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                sessionId:
+                  payload.sessionId,
+                email:
+                  payload.email,
+                question:
+                  message,
+              }),
+            cache:
+              "no-store",
+          }
+        );
+
+      const rawDocumentResponse =
+        await documentResponse.text();
+
+      let documentData: {
+        success?: boolean;
+        error?: string;
+        reply?: string;
+        intent?: string;
+        documentId?: string;
+        documentType?: string;
+        originalFileName?: string;
+      };
+
+      try {
+        documentData =
+          JSON.parse(
+            rawDocumentResponse
+          );
+      } catch {
+        console.error(
+          "[medical document question] backend returned non-JSON response",
+          {
+            status:
+              documentResponse.status,
+            body:
+              rawDocumentResponse.slice(
+                0,
+                500
+              ),
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Medical document guidance service returned an invalid response.",
+            reply:
+              "I could not read the medical document guidance service response.",
+          },
+          {
+            status:
+              502,
+          }
+        );
+      }
+
+      if (
+        !documentResponse.ok
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              documentData.error ??
+              "Could not answer the medical document question.",
+            reply:
+              documentData.error ??
+              "I could not answer that question about your document.",
+          },
+          {
+            status:
+              documentResponse.status,
+          }
+        );
+      }
+
+      const assistantReply =
+        String(
+          documentData.reply ??
+          "I could not produce an explanation for that document."
+        ).trim();
+
+      const historySaved =
+        await saveChatHistory({
+          backendUrl,
+          sessionId:
+            payload.sessionId,
+          firstName:
+            String(
+              payload.firstName ??
+              ""
+            ),
+          email:
+            payload.email,
+          userMessage:
+            message,
+          assistantReply,
+        });
+
+      return NextResponse.json({
+        reply:
+          assistantReply,
+        intent:
+          "medical_document_question",
+        documentId:
+          documentData.documentId ??
+          payload.documentId,
+        documentType:
+          documentData.documentType,
+        originalFileName:
+          documentData.originalFileName,
+        sessionId:
+          payload.sessionId,
+        email:
+          payload.email,
+        historySaved,
+      });
+    }
+
+    const selectedDoctor = normalizeDoctor(payload.selectedDoctor);
+
+    const backendPayload = {
+      message,
+      sessionId: payload.sessionId,
+      email: payload.email,
+      action: mapBookingAction(payload.bookingAction),
+      selectedDoctor,
+      selectedDate: payload.appointmentDate ?? "",
+      displayDate: payload.displayDate ?? payload.appointmentDate ?? "",
+      dayName: payload.dayName ?? "",
+      selectedTime: payload.appointmentTime ?? "",
+      appointmentId: payload.appointmentId ?? "",
+      cancellationReason: payload.cancellationReason ?? "",
+      newAppointmentDate: payload.newAppointmentDate ?? "",
+      newAppointmentTime: payload.newAppointmentTime ?? "",
+      audioBase64: hasAudio ? payload.audioBase64 : "",
+      mimeType: hasAudio ? payload.mimeType || "audio/webm" : "",
+      requestVoiceReply: hasAudio ? true : Boolean(payload.requestVoiceReply),
+    };
+
+    console.log("======================================");
+    console.log("[Next /api/chat] forwarding to backend", {
+      backendUrl,
+      sessionId: backendPayload.sessionId,
+      email: backendPayload.email,
+      message: backendPayload.message,
+      action: backendPayload.action,
+      appointmentId: backendPayload.appointmentId,
+      hasAudio,
+      mimeType: backendPayload.mimeType,
+      requestVoiceReply: backendPayload.requestVoiceReply,
+    });
+    console.log("======================================");
+
+    const response = await fetch(`${backendUrl}/api/assistant/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(backendPayload),
+      cache: "no-store",
+    });
+
+    const raw = await response.text();
+
+    console.log("[Next /api/chat] backend status:", response.status);
+
+    let result: AssistantResponse;
+
+    try {
+      result = JSON.parse(raw) as AssistantResponse;
+    } catch {
+      result = {
+        reply: raw,
+      };
+    }
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          error: "Assistant backend failed",
+          reply: result.reply ?? "The assistant is temporarily unavailable.",
+        },
+        {
+          status: response.status,
+        }
+      );
+    }
+
+    const doctors = result.cards ?? result.doctors ?? [];
+    const timeSlots = normalizeTimeSlots(
+      result.timeSlots ?? result.availableTimeSlots
+    );
+
+    let bookingStep = result.bookingStep;
+
+    if (!bookingStep && result.intent === "booking_calendar") {
+      bookingStep = "date";
+    }
+
+    if (
+      !bookingStep &&
+      (result.intent === "time_selection" || timeSlots.length > 0)
+    ) {
+      bookingStep = "time";
+    }
+
+    if (!bookingStep && payload.bookingAction === "start_booking") {
+      bookingStep = "date";
+    }
+
+    const bookingConfirmed =
+      result.bookingConfirmed === true ||
+      result.intent === "booking_confirmed" ||
+      result.intent === "appointment_booked";
+
+    const assistantReply = String(
+      result.reply ?? "I could not create a response."
+    ).trim();
+
+    const transcript = String(result.transcript ?? result.message ?? "").trim();
+
+    /*
+     * Text history stores only this turn's user message.
+     * Voice history stores the STT transcript.
+     */
+    const userHistoryMessage = hasAudio ? transcript : message.trim();
+
+    const historySaved = await saveChatHistory({
+      backendUrl,
+      sessionId: payload.sessionId,
+      firstName: String(payload.firstName ?? ""),
+      email: payload.email,
+      userMessage: userHistoryMessage,
+      assistantReply,
+    });
+
+    const appointmentOperation =
+      result.appointmentOperation ??
+      (result.intent === "appointment_cancelled"
+        ? "cancelled"
+        : result.intent === "appointment_rescheduled"
+          ? "rescheduled"
+          : "none");
+
+    return NextResponse.json({
+      reply: assistantReply,
+      transcript,
+      intent: result.intent,
+      doctors,
+      cards: result.cards ?? doctors,
+      bookingStep,
+      timeSlots,
+      calendar: result.calendar ?? null,
+      selectedDoctor: result.selectedDoctor ?? null,
+      selectedDate: result.selectedDate ?? "",
+      selectedTime: result.selectedTime ?? "",
+      appointmentOperation,
+      rescheduleMode: result.rescheduleMode === true,
+      bookingConfirmed,
+      appointmentId: result.appointment?.id ?? result.appointmentId,
+      sessionId: result.sessionId ?? payload.sessionId,
+      email: result.email ?? payload.email,
+      voiceMode: result.voiceMode ?? hasAudio,
+      audioBase64: result.audioBase64 ?? "",
+      mimeType: result.mimeType ?? (result.audioBase64 ? "audio/mpeg" : ""),
+      historySaved,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[Next /api/chat]", error);
+
     return NextResponse.json(
-      { error: "Unable to reach the LLM server", details: message },
-      { status: 500 }
+      {
+        error: "Unable to reach assistant",
+        reply:
+          error instanceof Error
+            ? error.message
+            : "The medical assistant is temporarily unavailable.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

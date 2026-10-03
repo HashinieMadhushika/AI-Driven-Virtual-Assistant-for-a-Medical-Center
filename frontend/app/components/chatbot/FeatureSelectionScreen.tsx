@@ -1,345 +1,2636 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import {
+  CalendarCheck,
+  Stethoscope,
+  Activity,
+  FileText,
+  Pill,
+  Mic,
+  Volume2,
+  Play,
+  Headphones,
+  Phone,
+} from "lucide-react";
+
 import FeatureCard from "./FeatureCard";
 import ChatInput from "./ChatInput";
-import { useState } from "react";
-import { CalendarCheck, Stethoscope, FileText, Pill } from "lucide-react";
-import DoctorCards, { type Doctor } from "./DoctorCards";
-import AppointmentStepPicker from "./AppointmentStepPicker";
-import AppointmentConfirmationCard from "./AppointmentConfirmationCard";
-import BookingConfirmationMessage from "./BookingConfirmationMessage";
-import SymptomAnalysisCard, { type SymptomCardData } from "./SymptomAnalysisCard";
-import DocumentResultCard, { type DocumentResultData } from "./DocumentResultCard";
-import type { PreviousChat } from "./UserInfoScreen";
 
-type BookingStep = "date" | "time" | "patient" | "none";
-type BookingAction = "start_booking" | "check_time_slots" | "select_time_slot";
-type DocumentType = "MEDICAL_REPORT" | "PRESCRIPTION";
+import DoctorCards, {
+  type Doctor,
+} from "./DoctorCards";
+
+import AppointmentStepPicker from "./AppointmentStepPicker";
+
+import AppointmentConfirmationCard from "./AppointmentConfirmationCard";
+
+import BookingConfirmationMessage from "./BookingConfirmationMessage";
+
+import SymptomAnalysisCard, {
+  type SymptomCardData,
+} from "./SymptomAnalysisCard";
+
+import DocumentResultCard, {
+  type DocumentResultData,
+} from "./DocumentResultCard";
+
+import type {
+  PreviousChat,
+} from "./UserInfoScreen";
+
+type BookingStep =
+  | "date"
+  | "time"
+  | "patient"
+  | "none";
+
+type BookingAction =
+  | "start_booking"
+  | "check_time_slots"
+  | "select_time_slot"
+  | "cancel_appointment"
+  | "reschedule_appointment";
+
+type DocumentType =
+  | "PRESCRIPTION"
+  | "MEDICAL_REPORT"
+  | "LAB_REPORT"
+  | "OTHER_MEDICAL_DOCUMENT";
+
+type TimeSlot =
+  | string
+  | {
+      label: string;
+      booked?: boolean;
+    };
+
 type ChatMessage = {
-  role: "ai" | "user";
+  role:
+    | "ai"
+    | "user"
+    | "admin";
+
   text: string;
+
+  inputMode?: "text" | "voice";
+
+  voiceAudioBase64?: string;
+
+  voiceMimeType?: string;
+
   imageName?: string;
+
   doctors?: Doctor[];
+
   bookingStep?: BookingStep;
-  timeSlots?: Array<string | { label: string; booked?: boolean }>;
-  appointmentPreview?: { doctor: Doctor; date: string; time: string };
+
+  timeSlots?: TimeSlot[];
+
+  appointmentPreview?: {
+    doctor: Doctor;
+    date: string;
+    time: string;
+  };
+
   bookingConfirmed?: boolean;
-  appointmentId?: string | number;
-  bookingPrompt?: "pending" | "accepted" | "declined";
+
+  appointmentId?:
+    | string
+    | number;
+
+  appointmentOperation?:
+    | "cancelled"
+    | "rescheduled"
+    | "none";
+
+  intent?: string;
+
+  rescheduleMode?: boolean;
+
+  bookingPrompt?:
+    | "pending"
+    | "accepted"
+    | "declined";
+
   historySaved?: boolean;
+
   symptomCard?: SymptomCardData;
+
   documentResult?: DocumentResultData;
-  documentChoice?: "pending" | DocumentType;
+
+  documentChoice?:
+    | "pending"
+    | DocumentType;
 };
 
-interface Props {
-  visitor: { firstName: string; email: string };
-  previousChat: PreviousChat | null;
-}
+type ChatApiResponse = {
+  error?: string;
 
-export default function FeatureSelectionScreen({ visitor, previousChat }: Props) {
-  const [sessionId] = useState(() => previousChat?.sessionId ?? crypto.randomUUID());
-  const [isSending, setIsSending] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (previousChat?.messages.length) {
-      return previousChat.messages.map((message) => ({
-        role: message.role === "assistant" ? "ai" as const : "user" as const,
-        text: message.content
-      }));
-    }
+  reply?: string;
 
-    return [
-      { role: "ai" as const, text: "Hi! You can ask me anything, or choose one option above." }
-    ];
-  });
-  const handleSend = async (
-    text: string,
-    image?: File,
-    booking?: { action: BookingAction; doctor: Doctor; date?: string; time?: string },
-    messageHistory: typeof messages = messages
-  ) => {
-    const t = text.trim();
-    if ((!t && !image) || isSending) return;
-    const messageText = t || "Please analyze the attached image.";
+  transcript?: string;
 
-    const nextMessages = [
-      ...messageHistory,
-      { role: "user" as const, text: messageText, imageName: image?.name }
-    ];
-    setMessages(nextMessages);
+  intent?: string;
 
-    setIsSending(true);
+  doctors?: Doctor[];
+
+  cards?: Doctor[];
+
+  bookingStep?: BookingStep;
+
+  timeSlots?: TimeSlot[];
+
+  calendar?: Array<{
+    date: string;
+    displayDate?: string;
+    dayName?: string;
+    available?: boolean;
+    timeSlots?: string[];
+  }> | null;
+
+  selectedDoctor?: Doctor | null;
+
+  selectedDate?: string;
+
+  bookingConfirmed?: boolean;
+
+  appointmentId?:
+    | string
+    | number;
+
+  appointmentOperation?:
+    | "cancelled"
+    | "rescheduled"
+    | "none";
+
+  rescheduleMode?: boolean;
+
+  historySaved?: boolean;
+
+  symptomCard?: SymptomCardData;
+
+  documentResult?: DocumentResultData;
+
+  documentId?: string;
+
+  voiceMode?: boolean;
+
+  audioBase64?: string;
+
+  mimeType?: string;
+
+  humanMode?: boolean;
+
+  phone?: string;
+
+  handover?: {
+    id: number;
+    status:
+      | "Pending"
+      | "Active"
+      | "Resolved";
+    phone?: string;
+  } | null;
+};
+
+function VoicePlayback({
+  audioBase64,
+  mimeType = "audio/mpeg",
+}: {
+  audioBase64: string;
+  mimeType?: string;
+}) {
+  const play = async () => {
+    const audio =
+      new Audio(
+        `data:${mimeType};base64,${audioBase64}`
+      );
+
     try {
-      const formData = new FormData();
-      formData.set("sessionId", sessionId);
-      formData.set("firstName", visitor.firstName);
-      formData.set("email", visitor.email);
-      if (booking) {
-        formData.set("bookingAction", booking.action);
-        formData.set("selectedDoctor", JSON.stringify(booking.doctor));
-        if (booking.date) {
-          formData.set("appointmentDate", booking.date);
-          formData.set("displayDate", new Date(`${booking.date}T12:00:00`).toLocaleDateString());
-          formData.set("dayName", new Date(`${booking.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase());
-        }
-        if (booking.time) formData.set("appointmentTime", booking.time);
-      }
-      if (image) formData.set("documentType", selectedDocumentType ?? "PRESCRIPTION");
-      formData.set("messages", JSON.stringify(nextMessages.map((message) => ({
-        role: message.role === "ai" ? "assistant" : "user",
-        content: message.text
-      }))));
-      if (image) formData.set("image", image, image.name);
-
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        body: formData
-      });
-      const data = (await response.json()) as {
-        error?: string;
-        reply?: string;
-        doctors?: Doctor[];
-        bookingStep?: BookingStep;
-        timeSlots?: Array<string | { label: string; booked?: boolean }>;
-        bookingConfirmed?: boolean;
-        appointmentId?: string | number;
-        historySaved?: boolean;
-        symptomCard?: SymptomCardData;
-        documentResult?: DocumentResultData;
-      };
-      if (!response.ok || !data.reply) throw new Error(data.error ?? "Chat request failed");
-      const startsDoctorBooking = booking?.action === "start_booking";
-      setMessages((prev) => [...prev, {
-        role: "ai",
-        text: data.reply!,
-        doctors: data.doctors,
-        bookingStep: startsDoctorBooking && (!data.bookingStep || data.bookingStep === "none")
-          ? "date"
-          : data.bookingStep,
-        timeSlots: data.timeSlots,
-        bookingConfirmed: data.bookingConfirmed,
-        appointmentId: data.appointmentId,
-        historySaved: data.historySaved,
-        symptomCard: data.symptomCard,
-        documentResult: data.documentResult
-      }]);
+      await audio.play();
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: error instanceof Error ? error.message : "I could not connect right now. Please try again."
-        }
-      ]);
-    } finally {
-      setIsSending(false);
+      console.warn(
+        "[VoicePlayback] playback failed",
+        error
+      );
     }
   };
 
   return (
+    <button
+      type="button"
+      onClick={() => void play()}
+      className="mt-2 flex items-center gap-3 rounded-xl border border-teal-200 bg-white px-3 py-2 text-xs text-teal-800 transition hover:bg-teal-50"
+      aria-label="Replay assistant voice"
+      title="Replay voice"
+    >
+      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100">
+        <Play className="h-3.5 w-3.5 fill-current" />
+      </div>
+
+      <div className="flex items-end gap-0.5" aria-hidden="true">
+        <span className="h-2 w-[3px] rounded-full bg-teal-400" />
+        <span className="h-4 w-[3px] rounded-full bg-teal-500" />
+        <span className="h-3 w-[3px] rounded-full bg-teal-400" />
+        <span className="h-5 w-[3px] rounded-full bg-teal-600" />
+        <span className="h-3 w-[3px] rounded-full bg-teal-400" />
+        <span className="h-4 w-[3px] rounded-full bg-teal-500" />
+        <span className="h-2 w-[3px] rounded-full bg-teal-400" />
+      </div>
+
+      <Volume2 className="h-4 w-4" />
+
+      <span>
+        Replay voice
+      </span>
+    </button>
+  );
+}
+
+interface Props {
+  visitor: {
+    firstName: string;
+    email: string;
+  };
+
+  previousChat:
+    PreviousChat | null;
+}
+
+export default function FeatureSelectionScreen({
+  visitor,
+  previousChat,
+}: Props) {
+  /*
+   * IMPORTANT:
+   * Text and voice both use this SAME sessionId.
+   */
+  const [sessionId] =
+    useState(
+      () =>
+        previousChat?.sessionId ??
+        crypto.randomUUID()
+    );
+
+  const [
+    isSending,
+    setIsSending,
+  ] =
+    useState(false);
+
+  const [
+    selectedDoctor,
+    setSelectedDoctor,
+  ] =
+    useState<
+      Doctor | null
+    >(null);
+
+  const [
+    selectedDate,
+    setSelectedDate,
+  ] =
+    useState("");
+
+  const [
+    selectedDocumentType,
+    setSelectedDocumentType,
+  ] =
+    useState<
+      DocumentType | null
+    >(null);
+
+  const [
+    activeDocumentId,
+    setActiveDocumentId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    activeDocumentName,
+    setActiveDocumentName,
+  ] =
+    useState("");
+
+  const [
+    handoverStatus,
+    setHandoverStatus,
+  ] =
+    useState<
+      | "Pending"
+      | "Active"
+      | null
+    >(null);
+
+  const [
+    handoverId,
+    setHandoverId,
+  ] =
+    useState<
+      number | null
+    >(null);
+
+  const [
+    handoverPhone,
+    setHandoverPhone,
+  ] =
+    useState(
+      "+94 11 234 5678"
+    );
+
+  const lastHumanMessageIdRef =
+    useRef(0);
+
+  const previousHandoverStatusRef =
+    useRef<
+      | "Pending"
+      | "Active"
+      | null
+    >(null);
+
+  const backendBaseUrl =
+    process.env
+      .NEXT_PUBLIC_BACKEND_URL ??
+    "http://localhost:5000";
+
+  const [
+    messages,
+    setMessages,
+  ] =
+    useState<
+      ChatMessage[]
+    >(() => {
+      if (
+        previousChat
+          ?.messages
+          .length
+      ) {
+        return previousChat.messages.map(
+          (
+            message
+          ) => ({
+            role:
+              message.role ===
+              "assistant"
+                ? ("ai" as const)
+                : ("user" as const),
+
+            text:
+              message.content,
+          })
+        );
+      }
+
+      return [
+        {
+          role:
+            "ai" as const,
+
+          text:
+            "Hi! You can ask me anything, or choose one option above.",
+        },
+      ];
+    });
+
+  const requestHumanSupport =
+    async (
+      reason =
+        "I want to talk to a human receptionist."
+    ) => {
+      if (
+        isSending
+      ) {
+        return;
+      }
+
+      setIsSending(
+        true
+      );
+
+      try {
+        const response =
+          await fetch(
+            `${backendBaseUrl}/api/chat/handover/request`,
+            {
+              method:
+                "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body:
+                JSON.stringify({
+                  sessionId,
+                  firstName:
+                    visitor.firstName,
+                  email:
+                    visitor.email,
+                  reason,
+                }),
+            }
+          );
+
+        const data =
+          (await response.json()) as {
+            error?: string;
+            reply?: string;
+            handover?: {
+              id: number;
+              status:
+                | "Pending"
+                | "Active"
+                | "Resolved";
+              phone?: string;
+            } | null;
+          };
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            data.error ??
+              "Could not request human support"
+          );
+        }
+
+        const status =
+          data.handover
+            ?.status;
+
+        if (
+          status ===
+            "Pending" ||
+          status ===
+            "Active"
+        ) {
+          setHandoverStatus(
+            status
+          );
+
+          previousHandoverStatusRef.current =
+            status;
+        }
+
+        if (
+          data.handover
+            ?.id
+        ) {
+          setHandoverId(
+            data.handover.id
+          );
+        }
+
+        if (
+          data.handover
+            ?.phone
+        ) {
+          setHandoverPhone(
+            data.handover.phone
+          );
+        }
+
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+            {
+              role:
+                "ai",
+              text:
+                data.reply ??
+                "A Medicare receptionist has been requested for this conversation.",
+              intent:
+                "human_handover_requested",
+            },
+          ]
+        );
+      } catch (
+        error
+      ) {
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+            {
+              role:
+                "ai",
+              text:
+                error instanceof
+                  Error
+                  ? error.message
+                  : "I could not request human support right now.",
+            },
+          ]
+        );
+      } finally {
+        setIsSending(
+          false
+        );
+      }
+    };
+
+  /*
+   * Poll human-support status and receptionist/system replies.
+   *
+   * AI is suspended while the handover is Pending or Active.
+   */
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      const poll =
+        async () => {
+          try {
+            const response =
+              await fetch(
+                `${backendBaseUrl}/api/chat/handover/messages/${encodeURIComponent(
+                  sessionId
+                )}?email=${encodeURIComponent(
+                  visitor.email
+                )}&afterId=${lastHumanMessageIdRef.current}`,
+                {
+                  cache:
+                    "no-store",
+                }
+              );
+
+            if (
+              !response.ok ||
+              cancelled
+            ) {
+              return;
+            }
+
+            const data =
+              (await response.json()) as {
+                handover?: {
+                  id: number;
+                  status:
+                    | "Pending"
+                    | "Active"
+                    | "Resolved";
+                  phone?: string;
+                } | null;
+                phone?: string;
+                messages?: Array<{
+                  id: number;
+                  role:
+                    | "admin"
+                    | "system";
+                  content: string;
+                }>;
+              };
+
+            const phone =
+              data.phone ??
+              data.handover
+                ?.phone;
+
+            if (phone) {
+              setHandoverPhone(
+                phone
+              );
+            }
+
+            const status =
+              data.handover
+                ?.status;
+
+            if (
+              status ===
+                "Pending" ||
+              status ===
+                "Active"
+            ) {
+              setHandoverStatus(
+                status
+              );
+
+              setHandoverId(
+                data.handover
+                  ?.id ??
+                  null
+              );
+
+              previousHandoverStatusRef.current =
+                status;
+            } else if (
+              status ===
+                "Resolved" &&
+              previousHandoverStatusRef.current
+            ) {
+              setHandoverStatus(
+                null
+              );
+
+              setHandoverId(
+                null
+              );
+
+              previousHandoverStatusRef.current =
+                null;
+            }
+
+            const newMessages =
+              data.messages ??
+              [];
+
+            if (
+              newMessages.length >
+              0
+            ) {
+              lastHumanMessageIdRef.current =
+                Math.max(
+                  lastHumanMessageIdRef.current,
+                  ...newMessages.map(
+                    (
+                      message
+                    ) =>
+                      message.id
+                  )
+                );
+
+              setMessages(
+                (
+                  current
+                ) => [
+                  ...current,
+                  ...newMessages.map(
+                    (
+                      message
+                    ): ChatMessage => ({
+                      role:
+                        message.role ===
+                        "admin"
+                          ? "admin"
+                          : "ai",
+                      text:
+                        message.content,
+                      intent:
+                        message.role ===
+                        "admin"
+                          ? "human_handover_reply"
+                          : "human_handover_system",
+                    })
+                  ),
+                ]
+              );
+            }
+          } catch (
+            error
+          ) {
+            console.warn(
+              "[Human handover] polling failed",
+              error
+            );
+          }
+        };
+
+      const start =
+        window.setTimeout(
+          () => {
+            void poll();
+          },
+          0
+        );
+
+      const timer =
+        window.setInterval(
+          () => {
+            void poll();
+          },
+          3000
+        );
+
+      return () => {
+        cancelled =
+          true;
+
+        window.clearTimeout(
+          start
+        );
+
+        window.clearInterval(
+          timer
+        );
+      };
+    },
+    [
+      backendBaseUrl,
+      sessionId,
+      visitor.email,
+    ]
+  );
+
+  /*
+   * Convert recorded browser Blob to raw base64.
+   */
+  const blobToBase64 = (
+    blob: Blob
+  ): Promise<string> => {
+    return new Promise(
+      (
+        resolve,
+        reject
+      ) => {
+        const reader =
+          new FileReader();
+
+        reader.onerror =
+          () => {
+            reject(
+              new Error(
+                "Unable to read voice recording"
+              )
+            );
+          };
+
+        reader.onloadend =
+          () => {
+            const result =
+              reader.result;
+
+            if (
+              typeof result !==
+              "string"
+            ) {
+              reject(
+                new Error(
+                  "Invalid voice recording"
+                )
+              );
+
+              return;
+            }
+
+            const base64 =
+              result.includes(
+                ","
+              )
+                ? result.split(
+                    ","
+                  )[1]
+                : result;
+
+            if (!base64) {
+              reject(
+                new Error(
+                  "Voice recording was empty"
+                )
+              );
+
+              return;
+            }
+
+            resolve(
+              base64
+            );
+          };
+
+        reader.readAsDataURL(
+          blob
+        );
+      }
+    );
+  };
+
+  /*
+   * Play ElevenLabs TTS response returned from n8n.
+   */
+  const playAssistantAudio =
+    async (
+      audioBase64: string,
+      mimeType =
+        "audio/mpeg"
+    ) => {
+      if (
+        !audioBase64
+      ) {
+        return;
+      }
+
+      const audio =
+        new Audio(
+          `data:${mimeType};base64,${audioBase64}`
+        );
+
+      try {
+        await audio.play();
+      } catch (
+        error
+      ) {
+        console.warn(
+          "[FeatureSelectionScreen] browser blocked audio playback",
+          error
+        );
+      }
+    };
+
+  /*
+   * Existing TEXT / IMAGE / BOOKING flow.
+   */
+  const handleSend =
+    async (
+      text: string,
+      image?: File,
+      booking?: {
+        action:
+          BookingAction;
+
+        doctor:
+          Doctor;
+
+        date?:
+          string;
+
+        time?:
+          string;
+      },
+
+      messageHistory:
+        ChatMessage[] =
+        messages
+    ) => {
+      const t =
+        text.trim();
+
+      if (
+        (!t &&
+          !image) ||
+        isSending
+      ) {
+        return;
+      }
+
+      const messageText =
+        t ||
+        "Please upload the attached medical document.";
+
+      const nextMessages:
+        ChatMessage[] =
+        [
+          ...messageHistory,
+
+          {
+            role:
+              "user",
+
+            text:
+              messageText,
+
+            inputMode:
+              "text",
+
+            imageName:
+              image?.name,
+          },
+        ];
+
+      setMessages(
+        nextMessages
+      );
+
+      setIsSending(
+        true
+      );
+
+      /*
+       * During human handover, patient text goes directly to reception.
+       * It is NOT forwarded to the AI/n8n workflow.
+       */
+      if (
+        handoverStatus
+      ) {
+        try {
+          const response =
+            await fetch(
+              `${backendBaseUrl}/api/chat/handover/messages`,
+              {
+                method:
+                  "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body:
+                  JSON.stringify({
+                    sessionId,
+                    firstName:
+                      visitor.firstName,
+                    email:
+                      visitor.email,
+                    content:
+                      messageText,
+                  }),
+              }
+            );
+
+          const data =
+            (await response.json()) as {
+              error?: string;
+            };
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              data.error ??
+                "Could not send message to reception"
+            );
+          }
+        } catch (
+          error
+        ) {
+          setMessages(
+            (
+              current
+            ) => [
+              ...current,
+              {
+                role:
+                  "ai",
+                text:
+                  error instanceof
+                    Error
+                    ? error.message
+                    : "Could not send your message to reception.",
+              },
+            ]
+          );
+        } finally {
+          setIsSending(
+            false
+          );
+        }
+
+        return;
+      }
+
+      try {
+        const formData =
+          new FormData();
+
+        formData.set(
+          "sessionId",
+          sessionId
+        );
+
+        formData.set(
+          "firstName",
+          visitor.firstName
+        );
+
+        formData.set(
+          "email",
+          visitor.email
+        );
+
+        if (
+          activeDocumentId &&
+          !image &&
+          !booking
+        ) {
+          formData.set(
+            "documentId",
+            activeDocumentId
+          );
+        }
+
+        if (booking) {
+          formData.set(
+            "bookingAction",
+            booking.action
+          );
+
+          formData.set(
+            "selectedDoctor",
+            JSON.stringify(
+              booking.doctor
+            )
+          );
+
+          if (
+            booking.date
+          ) {
+            formData.set(
+              "appointmentDate",
+              booking.date
+            );
+
+            formData.set(
+              "displayDate",
+              new Date(
+                `${booking.date}T12:00:00`
+              ).toLocaleDateString()
+            );
+
+            formData.set(
+              "dayName",
+              new Date(
+                `${booking.date}T12:00:00`
+              )
+                .toLocaleDateString(
+                  "en-US",
+                  {
+                    weekday:
+                      "long",
+                  }
+                )
+                .toLowerCase()
+            );
+          }
+
+          if (
+            booking.time
+          ) {
+            formData.set(
+              "appointmentTime",
+              booking.time
+            );
+          }
+        }
+
+        if (image) {
+          formData.set(
+            "documentType",
+            selectedDocumentType ??
+              "OTHER_MEDICAL_DOCUMENT"
+          );
+        }
+
+        formData.set(
+          "messages",
+          JSON.stringify(
+            nextMessages.map(
+              (
+                message
+              ) => ({
+                role:
+                  message.role ===
+                  "ai"
+                    ? "assistant"
+                    : "user",
+
+                content:
+                  message.text,
+              })
+            )
+          )
+        );
+
+        if (image) {
+          formData.set(
+            "image",
+            image,
+            image.name
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/chat",
+            {
+              method:
+                "POST",
+
+              body:
+                formData,
+            }
+          );
+
+        const data =
+          (await response.json()) as ChatApiResponse;
+
+        const uploadedDocumentId =
+          data.documentResult
+            ?.data
+            ?.documentId;
+
+        if (
+          typeof uploadedDocumentId ===
+          "string"
+        ) {
+          setActiveDocumentId(
+            uploadedDocumentId
+          );
+
+          const uploadedName =
+            data.documentResult
+              ?.data
+              ?.originalFileName;
+
+          setActiveDocumentName(
+            typeof uploadedName ===
+              "string"
+              ? uploadedName
+              : image?.name ??
+                  "uploaded medical document"
+          );
+        } else if (
+          typeof data.documentId ===
+          "string" &&
+          data.intent ===
+            "medical_document_question"
+        ) {
+          setActiveDocumentId(
+            data.documentId
+          );
+        }
+
+        if (
+          !response.ok ||
+          (!data.reply &&
+            !data.humanMode)
+        ) {
+          throw new Error(
+            data.error ??
+              data.reply ??
+              "Chat request failed"
+          );
+        }
+
+        if (
+          data.humanMode &&
+          data.handover
+        ) {
+          if (
+            data.handover.status ===
+              "Pending" ||
+            data.handover.status ===
+              "Active"
+          ) {
+            setHandoverStatus(
+              data.handover.status
+            );
+
+            setHandoverId(
+              data.handover.id
+            );
+
+            previousHandoverStatusRef.current =
+              data.handover.status;
+          }
+
+          if (
+            data.phone ||
+            data.handover.phone
+          ) {
+            setHandoverPhone(
+              data.phone ??
+                data.handover.phone ??
+                handoverPhone
+            );
+          }
+        }
+
+        const startsDoctorBooking =
+          booking?.action ===
+          "start_booking";
+
+        if (
+          data.intent ===
+          "medical_document_exit"
+        ) {
+          setActiveDocumentId(
+            null
+          );
+
+          setActiveDocumentName(
+            ""
+          );
+
+          setSelectedDocumentType(
+            null
+          );
+        }
+
+        const returnedDoctors =
+          data.doctors ??
+          data.cards;
+
+        if (data.selectedDoctor) {
+          setSelectedDoctor(
+            data.selectedDoctor
+          );
+        }
+
+        if (data.selectedDate) {
+          setSelectedDate(
+            data.selectedDate
+          );
+        }
+
+        if (
+          data.reply
+        ) {
+          setMessages(
+            (
+              prev
+            ) => [
+              ...prev,
+
+              {
+                role:
+                  "ai",
+
+                text:
+                  data.reply ?? "",
+
+                inputMode:
+                  "text",
+
+              intent:
+                data.intent,
+
+              rescheduleMode:
+                data.rescheduleMode,
+
+              doctors:
+                returnedDoctors,
+
+              bookingStep:
+                startsDoctorBooking &&
+                (!data.bookingStep ||
+                  data.bookingStep ===
+                    "none")
+                  ? "date"
+                  : data.bookingStep,
+
+              timeSlots:
+                data.timeSlots,
+
+              bookingConfirmed:
+                data.bookingConfirmed,
+
+              appointmentId:
+                data.appointmentId,
+
+              appointmentOperation:
+                data.appointmentOperation,
+
+              historySaved:
+                data.historySaved,
+
+              symptomCard:
+                data.symptomCard,
+
+                documentResult:
+                  data.documentResult,
+              },
+            ]
+          );
+        }
+
+        if (
+          data.bookingConfirmed ||
+          data.appointmentOperation === "cancelled" ||
+          data.appointmentOperation === "rescheduled"
+        ) {
+          setSelectedDoctor(
+            null
+          );
+
+          setSelectedDate(
+            ""
+          );
+        }
+      } catch (
+        error
+      ) {
+        console.error(
+          "[FeatureSelectionScreen] text request failed",
+          error
+        );
+
+        setMessages(
+          (
+            prev
+          ) => [
+            ...prev,
+
+            {
+              role:
+                "ai",
+
+              text:
+                error instanceof
+                Error
+                  ? error.message
+                  : "I could not connect right now. Please try again.",
+            },
+          ]
+        );
+      } finally {
+        setIsSending(
+          false
+        );
+      }
+    };
+
+  /*
+   * VOICE FLOW
+   *
+   * ChatInput
+   * → MediaRecorder Blob
+   * → base64
+   * → /api/chat
+   * → if document mode is active:
+   *      backend private document Q&A
+   *      → ElevenLabs STT
+   *      → Gemini document explanation
+   *      → ElevenLabs TTS
+   * → otherwise:
+   *      existing backend/n8n voice flow
+   * → audioBase64
+   */
+  const handleVoiceSend =
+    async (
+      audioBlob: Blob
+    ) => {
+      if (
+        isSending
+      ) {
+        return;
+      }
+
+      if (
+        handoverStatus
+      ) {
+        setIsSending(
+          true
+        );
+
+        try {
+          const form =
+            new FormData();
+
+          form.append(
+            "audio",
+            audioBlob,
+            "patient-handover.webm"
+          );
+
+          form.append(
+            "sessionId",
+            sessionId
+          );
+
+          form.append(
+            "firstName",
+            visitor.firstName
+          );
+
+          form.append(
+            "email",
+            visitor.email
+          );
+
+          const response =
+            await fetch(
+              `${backendBaseUrl}/api/chat/handover/voice`,
+              {
+                method:
+                  "POST",
+                body:
+                  form,
+              }
+            );
+
+          const data =
+            (await response.json()) as {
+              error?: string;
+              transcript?: string;
+            };
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              data.error ??
+                "Could not send voice message to reception"
+            );
+          }
+
+          if (
+            data.transcript
+          ) {
+            setMessages(
+              (
+                current
+              ) => [
+                ...current,
+                {
+                  role:
+                    "user",
+                  text:
+                    data.transcript!,
+                  inputMode:
+                    "voice",
+                },
+              ]
+            );
+          }
+        } catch (
+          error
+        ) {
+          setMessages(
+            (
+              current
+            ) => [
+              ...current,
+              {
+                role:
+                  "ai",
+                text:
+                  error instanceof
+                    Error
+                    ? error.message
+                    : "Could not send your voice message to reception.",
+              },
+            ]
+          );
+        } finally {
+          setIsSending(
+            false
+          );
+        }
+
+        return;
+      }
+
+      setIsSending(
+        true
+      );
+
+      try {
+        const audioBase64 =
+          await blobToBase64(
+            audioBlob
+          );
+
+        console.log(
+          "[FeatureSelectionScreen] voice request",
+          {
+            sessionId,
+
+            email:
+              visitor.email,
+
+            mimeType:
+              audioBlob.type,
+
+            audioBytes:
+              audioBlob.size,
+
+            base64Length:
+              audioBase64.length,
+          }
+        );
+
+        const response =
+          await fetch(
+            "/api/chat",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    sessionId,
+
+                    firstName:
+                      visitor.firstName,
+
+                    email:
+                      visitor.email,
+
+                    audioBase64,
+
+                    mimeType:
+                      audioBlob.type ||
+                      "audio/webm",
+
+                    requestVoiceReply:
+                      true,
+
+                    documentId:
+                      activeDocumentId ||
+                      undefined,
+                  }
+                ),
+            }
+          );
+
+        const data =
+          (await response.json()) as ChatApiResponse;
+
+        console.log(
+          "[FeatureSelectionScreen] voice response",
+          {
+            status:
+              response.status,
+
+            transcript:
+              data.transcript,
+
+            intent:
+              data.intent,
+
+            voiceMode:
+              data.voiceMode,
+
+            hasAudio:
+              Boolean(
+                data.audioBase64
+              ),
+
+            bookingStep:
+              data.bookingStep,
+
+            bookingConfirmed:
+              data.bookingConfirmed,
+          }
+        );
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            data.reply ||
+              data.error ||
+              "Voice request failed"
+          );
+        }
+
+        /*
+         * Show STT transcript in user bubble.
+         */
+        const transcript =
+          String(
+            data.transcript ||
+              ""
+          ).trim();
+
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+
+            {
+              role:
+                "user",
+
+              text:
+                transcript ||
+                "Voice message",
+
+              inputMode:
+                "voice",
+            },
+          ]
+        );
+
+        if (
+          data.intent ===
+          "medical_document_exit"
+        ) {
+          setActiveDocumentId(
+            null
+          );
+
+          setActiveDocumentName(
+            ""
+          );
+
+          setSelectedDocumentType(
+            null
+          );
+        }
+
+        const returnedDoctors =
+          data.doctors ??
+          data.cards;
+
+        /*
+         * When booking state was changed by voice,
+         * mirror it in the frontend so the calendar
+         * and time-slot buttons work exactly like text.
+         */
+        if (data.selectedDoctor) {
+          setSelectedDoctor(
+            data.selectedDoctor
+          );
+        }
+
+        if (data.selectedDate) {
+          setSelectedDate(
+            data.selectedDate
+          );
+        }
+
+        /*
+         * Render AI response using same card/booking structure.
+         */
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+
+            {
+              role:
+                "ai",
+
+              text:
+                data.reply ||
+                "I could not create a response.",
+
+              inputMode:
+                "voice",
+
+              intent:
+                data.intent,
+
+              rescheduleMode:
+                data.rescheduleMode,
+
+              voiceAudioBase64:
+                data.audioBase64 ||
+                undefined,
+
+              voiceMimeType:
+                data.mimeType ||
+                "audio/mpeg",
+
+              doctors:
+                returnedDoctors,
+
+              bookingStep:
+                data.bookingStep,
+
+              timeSlots:
+                data.timeSlots,
+
+              bookingConfirmed:
+                data.bookingConfirmed,
+
+              appointmentId:
+                data.appointmentId,
+
+              appointmentOperation:
+                data.appointmentOperation,
+
+              historySaved:
+                data.historySaved,
+
+              symptomCard:
+                data.symptomCard,
+
+              documentResult:
+                data.documentResult,
+            },
+          ]
+        );
+
+        /*
+         * Play spoken TTS response.
+         */
+        if (
+          data.audioBase64
+        ) {
+          await playAssistantAudio(
+            data.audioBase64,
+
+            data.mimeType ||
+              "audio/mpeg"
+          );
+        } else {
+          console.warn(
+            "[FeatureSelectionScreen] voice response contained no audioBase64"
+          );
+        }
+
+        if (
+          data.bookingConfirmed ||
+          data.appointmentOperation === "cancelled" ||
+          data.appointmentOperation === "rescheduled"
+        ) {
+          setSelectedDoctor(
+            null
+          );
+
+          setSelectedDate(
+            ""
+          );
+        }
+      } catch (
+        error
+      ) {
+        console.error(
+          "[FeatureSelectionScreen] voice request failed",
+          error
+        );
+
+        setMessages(
+          (
+            current
+          ) => [
+            ...current,
+
+            {
+              role:
+                "ai",
+
+              text:
+                error instanceof
+                Error
+                  ? error.message
+                  : "I could not process your voice message.",
+            },
+          ]
+        );
+      } finally {
+        setIsSending(
+          false
+        );
+      }
+    };
+
+  return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Title */}
-      <h2 className="text-xl font-bold text-teal-700 text-center mb-4">
+      <h2 className="mb-4 text-center text-xl font-bold text-teal-700">
         How can I help you?
       </h2>
 
-      {/* Cards row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Feature cards */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <FeatureCard
           title="Book Appointment"
           description="Schedule visit with specialist"
-          icon={<CalendarCheck className="w-5 h-5" />}
-          onClick={() => setMessages((current) => [
-            ...current,
-            { role: "ai", text: "Do you want to book an appointment?", bookingPrompt: "pending" }
-          ])}
+          icon={
+            <CalendarCheck className="h-5 w-5" />
+          }
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
+            setMessages(
+              (
+                current
+              ) => [
+                ...current,
+
+                {
+                  role:
+                    "ai",
+
+                  text:
+                    "Do you want to book an appointment?",
+
+                  bookingPrompt:
+                    "pending",
+                },
+              ]
+            );
+          }}
         />
+
         <FeatureCard
           title="Find Doctor"
           description="Search by specialization"
-          icon={<Stethoscope className="w-5 h-5" />}
-          onClick={() => void handleSend("Who are the available doctors?")}
+          icon={
+            <Stethoscope className="h-5 w-5" />
+          }
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
+            void handleSend(
+              "Who are the available doctors?"
+            );
+          }}
         />
+
+        <FeatureCard
+          title="Human Support"
+          description="Chat with reception or call us"
+          icon={
+            <Headphones className="h-5 w-5" />
+          }
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
+            void requestHumanSupport();
+          }}
+        />
+
         <FeatureCard
           title="Check Report"
           description="Access medical reports"
-          icon={<FileText className="w-5 h-5" />}
-          onClick={() => setMessages((current) => [
-            ...current,
-            { role: "ai", text: "What type of document would you like to check?", documentChoice: "pending" }
-          ])}
+          icon={
+            <FileText className="h-5 w-5" />
+          }
+          onClick={() => {
+            setActiveDocumentId(
+              null
+            );
+
+            setActiveDocumentName(
+              ""
+            );
+
+            setMessages(
+              (
+                current
+              ) => [
+                ...current,
+
+                {
+                  role:
+                    "ai",
+
+                  text:
+                    "What type of medical document would you like to upload securely?",
+
+                  documentChoice:
+                    "pending",
+                },
+              ]
+            );
+          }}
         />
       </div>
 
-      {/* Chat terminal area */}
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-inner space-y-3">
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "ml-auto flex max-w-[80%] justify-end" : "max-w-full"}>
-            {m.role === "ai" && m.symptomCard ? (
-              <SymptomAnalysisCard
-                analysis={m.symptomCard}
-                onBook={(doctor) => {
-                  setSelectedDoctor(doctor);
-                  void handleSend(`I would like to book an appointment with ${doctor.name}.`, undefined, {
-                    action: "start_booking",
-                    doctor
-                  });
-                }}
-              />
-            ) : null}
-            {m.role === "ai" && m.documentResult ? <DocumentResultCard result={m.documentResult} /> : null}
-            {!m.bookingConfirmed && !m.symptomCard && !m.documentResult ? <div className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
-              m.role === "ai" ? "bg-teal-100 text-slate-800" : "bg-teal-600 text-white"
-            }`}>
-              {m.role === "ai" ? `AI: ${m.text}` : (
-                <>
-                  {m.text}
-                  {m.imageName ? <div className="mt-1 text-xs opacity-80">Image: {m.imageName}</div> : null}
-                </>
-              )}
-            </div> : null}
-            {m.documentChoice === "pending" ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedDocumentType("MEDICAL_REPORT");
-                    setMessages((current) => [
-                      ...current.map((message, index) => index === i
-                        ? { ...message, documentChoice: "MEDICAL_REPORT" as const }
-                        : message),
-                      { role: "ai", text: "Medical report selected. Attach an image of the report; you can add a question too." }
-                    ]);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-                >
-                  <FileText className="h-4 w-4" />
-                  Medical report
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedDocumentType("PRESCRIPTION");
-                    setMessages((current) => [
-                      ...current.map((message, index) => index === i
-                        ? { ...message, documentChoice: "PRESCRIPTION" as const }
-                        : message),
-                      { role: "ai", text: "Prescription selected. Attach an image of the prescription; you can add a question too." }
-                    ]);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3.5 py-2 text-sm font-medium text-teal-800 transition hover:bg-teal-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-                >
-                  <Pill className="h-4 w-4" />
-                  Prescription
-                </button>
+      {handoverStatus ? (
+        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold">
+                {handoverStatus ===
+                "Active"
+                  ? "Reception has joined the conversation"
+                  : "Waiting for Medicare reception"}
               </div>
-            ) : null}
-            {m.role === "ai" && m.historySaved === false ? (
-              <p className="mt-1 text-xs text-amber-700" role="status">
-                This chat could not be saved. Your previous conversation may not be available next time.
-              </p>
-            ) : null}
-            {m.bookingPrompt === "pending" ? (
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  disabled={isSending}
-                  onClick={() => {
-                    const answeredMessages = messages.map((message, index) =>
-                      index === i ? { ...message, bookingPrompt: "accepted" as const } : message
-                    );
-                    setMessages(answeredMessages);
-                    void handleSend("Who are the available doctors?", undefined, undefined, answeredMessages);
-                  }}
-                  className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  disabled={isSending}
-                  onClick={() => {
-                    const answeredMessages = messages.map((message, index) =>
-                      index === i ? { ...message, bookingPrompt: "declined" as const } : message
-                    );
-                    setMessages([
-                      ...answeredMessages,
-                      { role: "ai", text: "No problem. Let me know if you need anything else." }
-                    ]);
-                  }}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  No
-                </button>
+
+              <div className="mt-1 text-xs text-sky-700">
+                AI replies are paused while human support is {handoverStatus.toLowerCase()}.
+                {handoverId ? ` Support request #${handoverId}.` : ""}
               </div>
-            ) : null}
-            {m.role === "ai" && m.bookingConfirmed ? (
-              <BookingConfirmationMessage message={m.text} appointmentId={m.appointmentId} />
-            ) : null}
-            {m.role === "ai" && m.doctors && !m.symptomCard ? (
-              <DoctorCards
-                doctors={m.doctors}
-                onBook={(doctor) => {
-                  setSelectedDoctor(doctor);
-                  void handleSend(`I would like to book an appointment with ${doctor.name}.`, undefined, {
-                    action: "start_booking",
-                    doctor
-                  });
-                }}
-              />
-            ) : null}
-            {m.role === "ai" && m.bookingStep ? (
-              <AppointmentStepPicker
-                step={m.bookingStep}
-                timeSlots={m.timeSlots}
-                onSubmit={(value) => {
-                  if (m.bookingStep !== "date" || !selectedDoctor) return;
-                  setSelectedDate(value);
-                  void handleSend(
-                    `My preferred appointment date is ${value}. Please check available times.`,
-                    undefined,
-                    { action: "check_time_slots", doctor: selectedDoctor, date: value }
-                  );
-                }}
-                onSelectTime={(time) => {
-                  if (!selectedDoctor || !selectedDate) return;
-                  setMessages((current) => [...current, {
-                    role: "ai",
-                    text: "Please review your appointment details:",
-                    appointmentPreview: { doctor: selectedDoctor, date: selectedDate, time }
-                  }]);
-                }}
-              />
-            ) : null}
-            {m.role === "ai" && m.appointmentPreview ? (
-              <AppointmentConfirmationCard
-                doctorName={m.appointmentPreview.doctor.name}
-                date={m.appointmentPreview.date}
-                time={m.appointmentPreview.time}
-                onConfirm={() => {
-                  void handleSend(
-                    `I confirm the appointment with ${m.appointmentPreview!.doctor.name} on ${m.appointmentPreview!.date} at ${m.appointmentPreview!.time}.`,
-                    undefined,
-                    {
-                      action: "select_time_slot",
-                      doctor: m.appointmentPreview!.doctor,
-                      date: m.appointmentPreview!.date,
-                      time: m.appointmentPreview!.time
-                    }
-                  );
-                }}
-              />
-            ) : null}
+            </div>
+
+            <a
+              href={`tel:${handoverPhone.replace(
+                /\s+/g,
+                ""
+              )}`}
+              className="inline-flex items-center gap-2 rounded-xl bg-sky-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-800"
+            >
+              <Phone className="h-4 w-4" />
+              Call {handoverPhone}
+            </a>
           </div>
-        ))}
+        </div>
+      ) : null}
+
+      {activeDocumentId &&
+      !handoverStatus ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs text-teal-900">
+          <div>
+            <span className="font-semibold">
+              Document question mode:
+            </span>{" "}
+            Ask questions about{" "}
+            {activeDocumentName ||
+              "your uploaded medical document"}.
+          </div>
+
+          <button
+            type="button"
+            disabled={
+              isSending
+            }
+            onClick={() => {
+              void handleSend(
+                "exit document mode"
+              );
+            }}
+            className="rounded-lg border border-teal-300 bg-white px-2.5 py-1 font-medium text-teal-800 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSending
+              ? "Exiting..."
+              : "Exit document mode"}
+          </button>
+        </div>
+      ) : null}
+
+      {/* Chat terminal area */}
+      <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-inner">
+        {messages.map(
+          (
+            m,
+            i
+          ) => (
+            <div
+              key={i}
+              className={
+                m.role ===
+                "user"
+                  ? "ml-auto flex max-w-[80%] justify-end"
+                  : "max-w-full"
+              }
+            >
+              {/* Symptom result */}
+              {m.role ===
+                "ai" &&
+              m.symptomCard ? (
+                <SymptomAnalysisCard
+                  analysis={
+                    m.symptomCard
+                  }
+                  onBook={(
+                    doctor
+                  ) => {
+                    setSelectedDoctor(
+                      doctor
+                    );
+
+                    void handleSend(
+                      `I would like to book an appointment with ${doctor.name}.`,
+                      undefined,
+                      {
+                        action:
+                          "start_booking",
+
+                        doctor,
+                      }
+                    );
+                  }}
+                />
+              ) : null}
+
+              {/* Document result */}
+              {m.role ===
+                "ai" &&
+              m.documentResult ? (
+                <DocumentResultCard
+                  result={
+                    m.documentResult
+                  }
+                  onAskDocumentQuestion={(
+                    question
+                  ) => {
+                    void handleSend(
+                      question
+                    );
+                  }}
+                />
+              ) : null}
+
+              {/* Standard chat bubble */}
+              {!m.bookingConfirmed &&
+              !m.symptomCard &&
+              !m.documentResult ? (
+                <div
+                  className={`w-fit max-w-full rounded-xl px-4 py-2 text-sm ${
+                    m.role ===
+                    "ai"
+                      ? "bg-teal-100 text-slate-800"
+                      : m.role ===
+                          "admin"
+                        ? "border border-sky-200 bg-sky-50 text-sky-900"
+                        : "bg-teal-600 text-white"
+                  }`}
+                >
+                  {m.role ===
+                  "admin" ? (
+                    <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                      <Headphones className="h-3 w-3" />
+                      Medicare Reception
+                    </div>
+                  ) : null}
+
+                  {m.role ===
+                  "ai" ? (
+                    <>
+                      <div className="flex items-start gap-2">
+                        {m.inputMode ===
+                        "voice" ? (
+                          <Volume2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+                        ) : null}
+
+                        <span>
+                          AI: {m.text}
+                        </span>
+                      </div>
+
+                      {m.inputMode ===
+                        "voice" &&
+                      m.voiceAudioBase64 ? (
+                        <VoicePlayback
+                          audioBase64={
+                            m.voiceAudioBase64
+                          }
+                          mimeType={
+                            m.voiceMimeType
+                          }
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-start gap-2">
+                        {m.inputMode ===
+                        "voice" ? (
+                          <Mic className="mt-0.5 h-4 w-4 shrink-0" />
+                        ) : null}
+
+                        <span>
+                          {m.text}
+                        </span>
+                      </div>
+
+                      {m.inputMode ===
+                      "voice" ? (
+                        <div className="mt-1 text-[10px] text-teal-100">
+                          Voice message
+                        </div>
+                      ) : null}
+
+                      {m.imageName ? (
+                        <div className="mt-1 text-xs opacity-80">
+                          Image:{" "}
+                          {
+                            m.imageName
+                          }
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Document choice */}
+              {m.documentChoice ===
+              "pending" ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocumentType(
+                        "MEDICAL_REPORT"
+                      );
+
+                      setMessages(
+                        (
+                          current
+                        ) => [
+                          ...current.map(
+                            (
+                              message,
+                              index
+                            ) =>
+                              index ===
+                              i
+                                ? {
+                                    ...message,
+
+                                    documentChoice:
+                                      "MEDICAL_REPORT" as const,
+                                  }
+                                : message
+                          ),
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "Medical report selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Medical report
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocumentType(
+                        "PRESCRIPTION"
+                      );
+
+                      setMessages(
+                        (
+                          current
+                        ) => [
+                          ...current.map(
+                            (
+                              message,
+                              index
+                            ) =>
+                              index ===
+                              i
+                                ? {
+                                    ...message,
+
+                                    documentChoice:
+                                      "PRESCRIPTION" as const,
+                                  }
+                                : message
+                          ),
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "Prescription selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3.5 py-2 text-sm font-medium text-teal-800 transition hover:bg-teal-50"
+                  >
+                    <Pill className="h-4 w-4" />
+                    Prescription
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocumentType(
+                        "LAB_REPORT"
+                      );
+
+                      setMessages(
+                        (
+                          current
+                        ) => [
+                          ...current.map(
+                            (
+                              message,
+                              index
+                            ) =>
+                              index ===
+                              i
+                                ? {
+                                    ...message,
+                                    documentChoice:
+                                      "LAB_REPORT" as const,
+                                  }
+                                : message
+                          ),
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "Lab report selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3.5 py-2 text-sm font-medium text-teal-800 transition hover:bg-teal-50"
+                  >
+                    <Activity className="h-4 w-4" />
+                    Lab report
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocumentType(
+                        "OTHER_MEDICAL_DOCUMENT"
+                      );
+
+                      setMessages(
+                        (
+                          current
+                        ) => [
+                          ...current.map(
+                            (
+                              message,
+                              index
+                            ) =>
+                              index ===
+                              i
+                                ? {
+                                    ...message,
+                                    documentChoice:
+                                      "OTHER_MEDICAL_DOCUMENT" as const,
+                                  }
+                                : message
+                          ),
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "Other medical document selected. Attach a PDF, JPG, JPEG, or PNG file to upload it securely.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Other document
+                  </button>
+                </div>
+              ) : null}
+
+              {/* History warning */}
+              {m.role ===
+                "ai" &&
+              m.historySaved ===
+                false ? (
+                <p
+                  className="mt-1 text-xs text-amber-700"
+                  role="status"
+                >
+                  This chat
+                  could not be
+                  saved. Your
+                  previous
+                  conversation
+                  may not be
+                  available
+                  next time.
+                </p>
+              ) : null}
+
+              {/* Booking yes/no */}
+              {m.bookingPrompt ===
+              "pending" ? (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      isSending
+                    }
+                    onClick={() => {
+                      const answeredMessages =
+                        messages.map(
+                          (
+                            message,
+                            index
+                          ) =>
+                            index ===
+                            i
+                              ? {
+                                  ...message,
+
+                                  bookingPrompt:
+                                    "accepted" as const,
+                                }
+                              : message
+                        );
+
+                      setMessages(
+                        answeredMessages
+                      );
+
+                      void handleSend(
+                        "Who are the available doctors?",
+                        undefined,
+                        undefined,
+                        answeredMessages
+                      );
+                    }}
+                    className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-50"
+                  >
+                    Yes
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      isSending
+                    }
+                    onClick={() => {
+                      const answeredMessages =
+                        messages.map(
+                          (
+                            message,
+                            index
+                          ) =>
+                            index ===
+                            i
+                              ? {
+                                  ...message,
+
+                                  bookingPrompt:
+                                    "declined" as const,
+                                }
+                              : message
+                        );
+
+                      setMessages(
+                        [
+                          ...answeredMessages,
+
+                          {
+                            role:
+                              "ai",
+
+                            text:
+                              "No problem. Let me know if you need anything else.",
+                          },
+                        ]
+                      );
+                    }}
+                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : null}
+
+              {/* Booking confirmation */}
+              {m.role ===
+                "ai" &&
+              m.bookingConfirmed ? (
+                <BookingConfirmationMessage
+                  message={
+                    m.text
+                  }
+                  appointmentId={
+                    m.appointmentId
+                  }
+                />
+              ) : null}
+
+              {/* Doctors */}
+              {m.role ===
+                "ai" &&
+              m.doctors &&
+              !m.symptomCard ? (
+                <DoctorCards
+                  doctors={
+                    m.doctors
+                  }
+                  onBook={(
+                    doctor
+                  ) => {
+                    setSelectedDoctor(
+                      doctor
+                    );
+
+                    void handleSend(
+                      `I would like to book an appointment with ${doctor.name}.`,
+                      undefined,
+                      {
+                        action:
+                          "start_booking",
+
+                        doctor,
+                      }
+                    );
+                  }}
+                />
+              ) : null}
+
+              {/* Date / time picker */}
+              {m.role ===
+                "ai" &&
+              m.bookingStep ? (
+                <AppointmentStepPicker
+                  step={
+                    m.bookingStep
+                  }
+                  timeSlots={
+                    m.timeSlots
+                  }
+                  onSubmit={(
+                    value
+                  ) => {
+                    if (
+                      m.bookingStep !==
+                      "date"
+                    ) {
+                      return;
+                    }
+
+                    setSelectedDate(
+                      value
+                    );
+
+                    /*
+                     * RESCHEDULE:
+                     * Send only the selected date.
+                     * The n8n operation state already knows
+                     * which appointment is being rescheduled.
+                     *
+                     * Do not include "appointment 7" again,
+                     * because an explicit appointment id is
+                     * treated as a fresh operation by the
+                     * state machine.
+                     */
+                    if (
+                      m.rescheduleMode ||
+                      m.intent ===
+                        "reschedule_date_required"
+                    ) {
+                      void handleSend(
+                        value
+                      );
+
+                      return;
+                    }
+
+                    /*
+                     * NORMAL BOOKING:
+                     * Requires the selected doctor.
+                     */
+                    if (
+                      !selectedDoctor
+                    ) {
+                      return;
+                    }
+
+                    void handleSend(
+                      `My preferred appointment date is ${value}. Please check available times.`,
+                      undefined,
+                      {
+                        action:
+                          "check_time_slots",
+
+                        doctor:
+                          selectedDoctor,
+
+                        date:
+                          value,
+                      }
+                    );
+                  }}
+                  onSelectTime={(
+                    time
+                  ) => {
+                    /*
+                     * RESCHEDULE:
+                     * The backend/n8n state already contains
+                     * appointment id + selected new date.
+                     * Sending the selected slot is enough to
+                     * execute the reschedule operation.
+                     */
+                    if (
+                      m.rescheduleMode ||
+                      m.intent ===
+                        "reschedule_time_required"
+                    ) {
+                      void handleSend(
+                        time
+                      );
+
+                      return;
+                    }
+
+                    /*
+                     * NORMAL BOOKING:
+                     * Keep the existing confirmation preview.
+                     */
+                    if (
+                      !selectedDoctor ||
+                      !selectedDate
+                    ) {
+                      return;
+                    }
+
+                    setMessages(
+                      (
+                        current
+                      ) => [
+                        ...current,
+
+                        {
+                          role:
+                            "ai",
+
+                          text:
+                            "Please review your appointment details:",
+
+                          appointmentPreview:
+                            {
+                              doctor:
+                                selectedDoctor,
+
+                              date:
+                                selectedDate,
+
+                              time,
+                            },
+                        },
+                      ]
+                    );
+                  }}
+                />
+              ) : null}
+
+              {/* Appointment preview */}
+              {m.role ===
+                "ai" &&
+              m.appointmentPreview ? (
+                <AppointmentConfirmationCard
+                  doctorName={
+                    m
+                      .appointmentPreview
+                      .doctor
+                      .name
+                  }
+                  date={
+                    m
+                      .appointmentPreview
+                      .date
+                  }
+                  time={
+                    m
+                      .appointmentPreview
+                      .time
+                  }
+                  onConfirm={() => {
+                    const preview =
+                      m.appointmentPreview;
+
+                    if (
+                      !preview
+                    ) {
+                      return;
+                    }
+
+                    void handleSend(
+                      `I confirm the appointment with ${preview.doctor.name} on ${preview.date} at ${preview.time}.`,
+                      undefined,
+                      {
+                        action:
+                          "select_time_slot",
+
+                        doctor:
+                          preview.doctor,
+
+                        date:
+                          preview.date,
+
+                        time:
+                          preview.time,
+                      }
+                    );
+                  }}
+                />
+              ) : null}
+            </div>
+          )
+        )}
       </div>
 
-      {/* Chat bar */}
+      {/* Chat bar - TEXT + ATTACHMENT + VOICE */}
       <div className="mt-4 shrink-0">
-        <ChatInput onSend={handleSend} />
+        <ChatInput
+          onSend={
+            handleSend
+          }
+          onVoiceSend={
+            handleVoiceSend
+          }
+          disabled={
+            isSending
+          }
+        />
       </div>
     </div>
   );

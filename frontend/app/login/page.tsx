@@ -1,50 +1,56 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HeartPulse, Shield, Stethoscope } from 'lucide-react'
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'
+const API =
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  'http://localhost:5000'
 
 type Role = 'admin' | 'doctor'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const params = useSearchParams()
 
-  const [role, setRole] = useState<Role>('admin')
+  const [role, setRole] = useState<Role>(() => {
+    const queryRole = params.get('role')
+
+    return queryRole === 'doctor' || queryRole === 'admin'
+      ? queryRole
+      : 'admin'
+  })
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // ✅ auto select role from query param (?role=doctor)
-  useEffect(() => {
-    const r = params.get('role')
-    if (r === 'doctor' || r === 'admin') {
-      setRole(r)
-    }
-  }, [params])
-
   const canSubmit = useMemo(() => {
-    if (!email || !password) return false
+    if (!email) return false
+    if (!password) return false
     if (password.length < 6) return false
+
     return true
   }, [email, password])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault()
     setError(null)
 
     if (!canSubmit) {
-      setError('Please enter email and password (min 6 characters).')
+      setError(
+        'Please enter email and password (min 6 characters).'
+      )
       return
     }
 
     setLoading(true)
+
     try {
-      // ✅ Role-based endpoint
       const endpoint =
         role === 'doctor'
           ? `${API}/api/doctors/login`
@@ -52,117 +58,205 @@ export default function LoginPage() {
 
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data?.message || data?.msg || 'Login failed')
+        throw new Error(
+          data?.message ||
+            data?.msg ||
+            'Login failed'
+        )
       }
 
       const token = data?.token
-      if (!token) throw new Error('Token missing from response')
-      localStorage.setItem('token', token)
+
+      if (!token) {
+        throw new Error(
+          'Token missing from response'
+        )
+      }
+
+      localStorage.setItem(
+        'token',
+        token
+      )
 
       if (role === 'admin') {
-        const backendRole = data?.user?.role
-        if (backendRole && backendRole !== 'admin') {
-          throw new Error('This account is not an admin account.')
+        const backendRole =
+          data?.user?.role
+
+        if (
+          backendRole &&
+          backendRole !== 'admin'
+        ) {
+          throw new Error(
+            'This account is not an admin account.'
+          )
         }
 
-        localStorage.setItem('userRole', 'admin')
-        localStorage.setItem('user', JSON.stringify(data.user))
-        router.push('/admin/dashboard')
+        localStorage.setItem(
+          'userRole',
+          'admin'
+        )
+
+        localStorage.setItem(
+          'user',
+          JSON.stringify(
+            data.user
+          )
+        )
+
+        router.push(
+          '/admin/dashboard'
+        )
       } else {
-        const possibleRole = data?.doctor?.role || data?.user?.role
-        if (possibleRole && possibleRole !== 'doctor') {
-          throw new Error('This account is not a doctor account.')
+        const possibleRole =
+          data?.doctor?.role ||
+          data?.user?.role
+
+        if (
+          possibleRole &&
+          possibleRole !== 'doctor'
+        ) {
+          throw new Error(
+            'This account is not a doctor account.'
+          )
         }
 
-        localStorage.setItem('userRole', 'doctor')
-        localStorage.setItem('user', JSON.stringify(data.doctor || data.user))
-        router.push('/doctor/dashboard')
+        localStorage.setItem(
+          'userRole',
+          'doctor'
+        )
+
+        localStorage.setItem(
+          'user',
+          JSON.stringify(
+            data.doctor ||
+              data.user
+          )
+        )
+
+        router.push(
+          '/doctor/dashboard'
+        )
       }
-    } catch (err: any) {
-      setError(err?.message || 'Invalid login details.')
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Invalid login details.'
+      )
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f8fafc] to-[#e0f2fe] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-b from-[#f8fafc] to-[#e0f2fe] flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-        {/* Logo */}
         <div className="flex items-center justify-center mb-5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white shadow">
+          <div className="w-12 h-12 rounded-xl bg-linear-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white shadow">
             <HeartPulse className="w-6 h-6" />
           </div>
         </div>
 
-        <h1 className="text-center text-xl font-semibold text-slate-800">Welcome Back</h1>
-        <p className="text-center text-sm text-slate-500 mt-1">Log in to your account</p>
+        <h1 className="text-center text-xl font-semibold text-slate-800">
+          Welcome Back
+        </h1>
 
-        {/* Role Selector */}
+        <p className="text-center text-sm text-slate-500 mt-1">
+          Log in to your account
+        </p>
+
         <div className="mt-6">
-          <p className="text-xs font-medium text-slate-600 mb-2">Select Your Role</p>
+          <p className="text-xs font-medium text-slate-600 mb-2">
+            Select Your Role
+          </p>
+
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setRole('admin')}
-              className={`rounded-xl border px-4 py-3 flex items-center justify-center gap-2 transition
-                ${
-                  role === 'admin'
-                    ? 'border-teal-600 bg-teal-50 text-teal-700'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }
-              `}
+              onClick={() =>
+                setRole('admin')
+              }
+              className={`rounded-xl border px-4 py-3 flex items-center justify-center gap-2 transition ${
+                role === 'admin'
+                  ? 'border-teal-600 bg-teal-50 text-teal-700'
+                  : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+              }`}
             >
               <Shield className="w-4 h-4" />
-              <span className="text-sm">Admin</span>
+              <span className="text-sm">
+                Admin
+              </span>
             </button>
 
             <button
               type="button"
-              onClick={() => setRole('doctor')}
-              className={`rounded-xl border px-4 py-3 flex items-center justify-center gap-2 transition
-                ${
-                  role === 'doctor'
-                    ? 'border-teal-600 bg-teal-50 text-teal-700'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }
-              `}
+              onClick={() =>
+                setRole('doctor')
+              }
+              className={`rounded-xl border px-4 py-3 flex items-center justify-center gap-2 transition ${
+                role === 'doctor'
+                  ? 'border-teal-600 bg-teal-50 text-teal-700'
+                  : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+              }`}
             >
               <Stethoscope className="w-4 h-4" />
-              <span className="text-sm">Doctor</span>
+              <span className="text-sm">
+                Doctor
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="mt-6 space-y-4"
+        >
           <div>
-            <label className="text-xs font-medium text-slate-600">Email</label>
+            <label className="text-xs font-medium text-slate-600">
+              Email
+            </label>
+
             <input
               type="email"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) =>
+                setEmail(
+                  e.target.value
+                )
+              }
               autoComplete="email"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-600">Password</label>
+            <label className="text-xs font-medium text-slate-600">
+              Password
+            </label>
+
             <input
               type="password"
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200"
               placeholder="Enter your password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) =>
+                setPassword(
+                  e.target.value
+                )
+              }
               autoComplete="current-password"
             />
           </div>
@@ -175,18 +269,28 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !canSubmit}
+            disabled={
+              loading ||
+              !canSubmit
+            }
             className="w-full rounded-xl py-3 text-sm font-medium bg-teal-600 text-white hover:bg-teal-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? 'Logging in...' : 'Log In'}
+            {loading
+              ? 'Logging in...'
+              : 'Log In'}
           </button>
         </form>
 
         <div className="mt-5 text-center text-sm text-slate-500">
-          Don&apos;t have an account?{' '}
+          Don&apos;t have an
+          account?{' '}
           <button
             className="text-teal-700 hover:underline"
-            onClick={() => router.push('/signup')}
+            onClick={() =>
+              router.push(
+                '/signup'
+              )
+            }
             type="button"
           >
             Sign Up
@@ -196,7 +300,9 @@ export default function LoginPage() {
         <div className="mt-3 text-center">
           <button
             type="button"
-            onClick={() => router.push('/')}
+            onClick={() =>
+              router.push('/')
+            }
             className="text-xs text-teal-700 hover:underline"
           >
             ← Back to Home
@@ -204,5 +310,23 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function LoginLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <p className="text-sm text-slate-500">
+        Loading login...
+      </p>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginContent />
+    </Suspense>
   )
 }

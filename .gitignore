@@ -15,6 +15,7 @@ node_modules/
 backend/.env
 frontend/.env
 rag/.env
+.venv-rag/
 
 # Ignore .env files anywhere in project
 **/.env

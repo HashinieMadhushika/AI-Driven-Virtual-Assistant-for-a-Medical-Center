@@ -1,0 +1,2119 @@
+{
+  "name": "Medicare Medical AI Assistant - Symptom Triage + Qdrant RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "medicare-assistant-clean",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1312,
+        288
+      ],
+      "id": "4c17444c-c8b2-43a6-8106-a5acaf1db9a4",
+      "name": "Website Webhook",
+      "webhookId": "f0e2242c-6f0d-4c10-93c8-6a48c7cbdde8"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3eed0e95-f69b-4747-87dd-a17e0faaf9fa",
+                    "leftValue": "={{ $json.body.audioBase64 }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "843531a9-7ff6-499a-bc1c-638fafdf1fc0",
+                    "leftValue": "={{ $json.body.message }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1072,
+        272
+      ],
+      "id": "519d9254-a21d-48d9-95c8-40528134cbba",
+      "name": "Detect Input Type"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body =\n  $json.body ??\n  $json;\n\nconst base64 =\n  String(\n    body.audioBase64 ||\n    \"\"\n  );\n\nconst mimeType =\n  String(\n    body.mimeType ||\n    \"audio/webm\"\n  );\n\nif (!base64) {\n  throw new Error(\n    \"audioBase64 is missing\"\n  );\n}\n\nconst cleanBase64 =\n  base64.includes(\",\")\n    ? base64.split(\",\")[1]\n    : base64;\n\nconst audioBuffer =\n  Buffer.from(\n    cleanBase64,\n    \"base64\"\n  );\n\nif (\n  audioBuffer.length <\n  500\n) {\n  throw new Error(\n    `Audio recording is too small: ${audioBuffer.length} bytes`\n  );\n}\n\nlet extension =\n  \"webm\";\n\nif (\n  mimeType.includes(\n    \"ogg\"\n  )\n) {\n  extension = \"ogg\";\n} else if (\n  mimeType.includes(\n    \"mp4\"\n  )\n) {\n  extension = \"mp4\";\n} else if (\n  mimeType.includes(\n    \"mpeg\"\n  )\n) {\n  extension = \"mp3\";\n}\n\nconst binary =\n  await this.helpers.prepareBinaryData(\n    audioBuffer,\n    `voice_input.${extension}`,\n    mimeType\n  );\n\nreturn [\n  {\n    json: {\n      sessionId:\n        body.sessionId ||\n        \"\",\n\n      email:\n        body.email ||\n        \"\",\n\n      action:\n        body.action ||\n        \"\",\n\n      selectedDoctor:\n        body.selectedDoctor ||\n        null,\n\n      selectedDate:\n        body.selectedDate ||\n        \"\",\n\n      displayDate:\n        body.displayDate ||\n        \"\",\n\n      dayName:\n        body.dayName ||\n        \"\",\n\n      selectedTime:\n        body.selectedTime ||\n        \"\",\n\n      appointmentId:\n        body.appointmentId ||\n        \"\",\n\n      cancellationReason:\n        body.cancellationReason ||\n        \"\",\n\n      newAppointmentDate:\n        body.newAppointmentDate ||\n        \"\",\n\n      newAppointmentTime:\n        body.newAppointmentTime ||\n        \"\",\n\n      requestVoiceReply:\n        true,\n\n      voiceMode:\n        true,\n\n      mimeType,\n\n      audioBytes:\n        audioBuffer.length,\n    },\n\n    binary: {\n      audioFile:\n        binary,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        48
+      ],
+      "id": "004d6b15-eb02-448d-9bc4-ef274b754ee4",
+      "name": "Decode Audio"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/speech-to-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audioFile"
+            },
+            {
+              "name": "model_id",
+              "value": "scribe_v2"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -624,
+        48
+      ],
+      "id": "19a06fba-c751-4366-896c-8f48cb63fe15",
+      "name": "ElevenLabs STT"
+    },
+    {
+      "parameters": {
+        "jsCode": "const stt =\n  $json;\n\nconst decoded =\n  $(\"Decode Audio\")\n    .first()\n    .json;\n\nconst transcript =\n  String(\n    stt.text ||\n    stt.transcript ||\n    \"\"\n  ).trim();\n\nif (!transcript) {\n  throw new Error(\n    \"Speech-to-text returned an empty transcript\"\n  );\n}\n\nreturn [\n  {\n    json: {\n      message:\n        transcript,\n\n      normalizedMessage:\n        transcript,\n\n      transcript,\n\n      sessionId:\n        decoded.sessionId,\n\n      email:\n        decoded.email,\n\n      action:\n        decoded.action ||\n        \"\",\n\n      selectedDoctor:\n        decoded.selectedDoctor ||\n        null,\n\n      selectedDate:\n        decoded.selectedDate ||\n        \"\",\n\n      displayDate:\n        decoded.displayDate ||\n        \"\",\n\n      dayName:\n        decoded.dayName ||\n        \"\",\n\n      selectedTime:\n        decoded.selectedTime ||\n        \"\",\n\n      appointmentId:\n        decoded.appointmentId ||\n        \"\",\n\n      cancellationReason:\n        decoded.cancellationReason ||\n        \"\",\n\n      newAppointmentDate:\n        decoded.newAppointmentDate ||\n        \"\",\n\n      newAppointmentTime:\n        decoded.newAppointmentTime ||\n        \"\",\n\n      voiceMode:\n        true,\n\n      requestVoiceReply:\n        true,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        48
+      ],
+      "id": "84c26af4-579b-4ada-b2b3-0ea46e4f23c8",
+      "name": "Normalize Voice"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body =\n  $json.body ??\n  $json;\n\nreturn [\n  {\n    json: {\n      message:\n        String(\n          body.message ||\n          \"\"\n        ).trim(),\n\n      normalizedMessage:\n        String(\n          body.message ||\n          \"\"\n        ).trim(),\n\n      transcript:\n        \"\",\n\n      sessionId:\n        body.sessionId ||\n        \"\",\n\n      email:\n        body.email ||\n        \"\",\n\n      action:\n        body.action ||\n        \"\",\n\n      selectedDoctor:\n        body.selectedDoctor ||\n        null,\n\n      selectedDate:\n        body.selectedDate ||\n        \"\",\n\n      displayDate:\n        body.displayDate ||\n        \"\",\n\n      dayName:\n        body.dayName ||\n        \"\",\n\n      selectedTime:\n        body.selectedTime ||\n        \"\",\n\n      appointmentId:\n        body.appointmentId ||\n        \"\",\n\n      cancellationReason:\n        body.cancellationReason ||\n        \"\",\n\n      newAppointmentDate:\n        body.newAppointmentDate ||\n        \"\",\n\n      newAppointmentTime:\n        body.newAppointmentTime ||\n        \"\",\n\n      voiceMode:\n        false,\n\n      requestVoiceReply:\n        false,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        288
+      ],
+      "id": "1a961dfb-44ee-4ae6-9e06-108c901c9d27",
+      "name": "Normalize Text"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "71f5f22e-3aaa-49a6-966f-b222593402ef",
+              "name": "reply",
+              "value": "Please send either message or audioBase64.",
+              "type": "string"
+            },
+            {
+              "id": "6a75b85a-a462-44ba-9285-32cf6c235e36",
+              "name": "intent",
+              "value": "input_error",
+              "type": "string"
+            },
+            {
+              "id": "12d38261-b56d-4ccd-80f8-386515ea6eed",
+              "name": "voiceMode",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -624,
+        784
+      ],
+      "id": "f2e153be-7545-4969-916f-441ce4faee6d",
+      "name": "Input Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $json;\n\nconst sessionId =\n  item.sessionId || \"default\";\n\nconst voiceMode =\n  item.voiceMode === true ||\n  item.requestVoiceReply === true;\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (!store.bookingStates) {\n  store.bookingStates = {};\n}\n\nif (!store.appointmentActionStates) {\n  store.appointmentActionStates = {};\n}\n\nlet state =\n  store.bookingStates[\n    sessionId\n  ] || {\n    stage: \"idle\",\n  };\n\nlet operationState =\n  store.appointmentActionStates[\n    sessionId\n  ] || {\n    type: \"\",\n    stage: \"idle\",\n    appointmentId: \"\",\n    newAppointmentDate: \"\",\n    newAppointmentTime: \"\",\n    cancellationReason: \"\",\n  };\n\n/*\n * ==================================================\n * INPUT NORMALIZATION\n * ==================================================\n *\n * Text:\n *   item.message\n *\n * Voice:\n *   STT output should already be placed into\n *   normalizedMessage/message/transcript.\n *\n * Both then use the same NLP/state logic.\n * ==================================================\n */\n\nconst originalMessage =\n  String(\n    item.normalizedMessage ||\n      item.message ||\n      item.transcript ||\n      \"\"\n  ).trim();\n\nconst msg =\n  originalMessage\n    .toLowerCase()\n    .replace(/[,?.!]/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n\n/*\n * ==================================================\n * HELPERS\n * ==================================================\n */\n\nfunction parseDoctor(raw) {\n  if (!raw) {\n    return null;\n  }\n\n  if (\n    typeof raw ===\n    \"object\"\n  ) {\n    return raw;\n  }\n\n  try {\n    return JSON.parse(\n      raw\n    );\n  } catch {\n    return null;\n  }\n}\n\nfunction isoLocal(date) {\n  const year =\n    date.getFullYear();\n\n  const month =\n    String(\n      date.getMonth() + 1\n    ).padStart(\n      2,\n      \"0\"\n    );\n\n  const day =\n    String(\n      date.getDate()\n    ).padStart(\n      2,\n      \"0\"\n    );\n\n  return `${year}-${month}-${day}`;\n}\n\nfunction dayName(\n  dateString\n) {\n  if (!dateString) {\n    return \"\";\n  }\n\n  const date =\n    new Date(\n      `${dateString}T12:00:00`\n    );\n\n  return [\n    \"sunday\",\n    \"monday\",\n    \"tuesday\",\n    \"wednesday\",\n    \"thursday\",\n    \"friday\",\n    \"saturday\",\n  ][date.getDay()];\n}\n\n/*\n * ==================================================\n * NATURAL DATE PARSER\n * ==================================================\n *\n * Supports BOTH text and voice:\n *\n * today\n * tomorrow\n * 2026-10-05\n * October 5\n * October fifth\n * October 5th\n * fifth October\n * fifth of October\n * 5 October\n * 5th of October\n *\n * Also supports:\n * twenty first of October\n * October twenty first\n * etc.\n * ==================================================\n */\n\nfunction extractDate(\n  text\n) {\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /,/g,\n        \" \"\n      )\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const now =\n    new Date();\n\n  now.setHours(\n    0,\n    0,\n    0,\n    0\n  );\n\n  /*\n   * TODAY\n   */\n  if (\n    /\\btoday\\b/.test(\n      normalized\n    )\n  ) {\n    return isoLocal(\n      now\n    );\n  }\n\n  /*\n   * TOMORROW\n   */\n  if (\n    /\\btomorrow\\b/.test(\n      normalized\n    )\n  ) {\n    const tomorrow =\n      new Date(\n        now\n      );\n\n    tomorrow.setDate(\n      tomorrow.getDate() +\n        1\n    );\n\n    return isoLocal(\n      tomorrow\n    );\n  }\n\n  /*\n   * ISO format:\n   * 2026-10-05\n   */\n  const iso =\n    normalized.match(\n      /\\b(20\\d{2}-\\d{2}-\\d{2})\\b/\n    );\n\n  if (iso) {\n    return iso[1];\n  }\n\n  const months = {\n    january: 0,\n    february: 1,\n    march: 2,\n    april: 3,\n    may: 4,\n    june: 5,\n    july: 6,\n    august: 7,\n    september: 8,\n    october: 9,\n    november: 10,\n    december: 11,\n  };\n\n  const ordinalWords = {\n    first: 1,\n    second: 2,\n    third: 3,\n    fourth: 4,\n    fifth: 5,\n    sixth: 6,\n    seventh: 7,\n    eighth: 8,\n    ninth: 9,\n    tenth: 10,\n    eleventh: 11,\n    twelfth: 12,\n    thirteenth: 13,\n    fourteenth: 14,\n    fifteenth: 15,\n    sixteenth: 16,\n    seventeenth: 17,\n    eighteenth: 18,\n    nineteenth: 19,\n    twentieth: 20,\n\n    \"twenty first\": 21,\n    \"twenty-first\": 21,\n\n    \"twenty second\": 22,\n    \"twenty-second\": 22,\n\n    \"twenty third\": 23,\n    \"twenty-third\": 23,\n\n    \"twenty fourth\": 24,\n    \"twenty-fourth\": 24,\n\n    \"twenty fifth\": 25,\n    \"twenty-fifth\": 25,\n\n    \"twenty sixth\": 26,\n    \"twenty-sixth\": 26,\n\n    \"twenty seventh\": 27,\n    \"twenty-seventh\": 27,\n\n    \"twenty eighth\": 28,\n    \"twenty-eighth\": 28,\n\n    \"twenty ninth\": 29,\n    \"twenty-ninth\": 29,\n\n    thirtieth: 30,\n\n    \"thirty first\": 31,\n    \"thirty-first\": 31,\n  };\n\n  function resolveDay(\n    value\n  ) {\n    if (!value) {\n      return 0;\n    }\n\n    const clean =\n      String(value)\n        .toLowerCase()\n        .trim();\n\n    /*\n     * 5\n     * 5th\n     * 21st\n     */\n    const numeric =\n      clean.match(\n        /^(\\d{1,2})(?:st|nd|rd|th)?$/\n      );\n\n    if (numeric) {\n      return Number(\n        numeric[1]\n      );\n    }\n\n    return (\n      ordinalWords[\n        clean\n      ] || 0\n    );\n  }\n\n  const monthPattern =\n    Object.keys(\n      months\n    ).join(\"|\");\n\n  const ordinalPattern =\n    Object.keys(\n      ordinalWords\n    )\n      .sort(\n        (a, b) =>\n          b.length -\n          a.length\n      )\n      .map(\n        (word) =>\n          word.replace(\n            /[-\\s]+/g,\n            \"[-\\\\s]+\"\n          )\n      )\n      .join(\"|\");\n\n  /*\n   * fifth of October\n   * fifth October\n   * 5th of October\n   * 5 October\n   */\n  const dayMonth =\n    new RegExp(\n      `(?:the\\\\s+)?(${ordinalPattern}|\\\\d{1,2}(?:st|nd|rd|th)?)\\\\s+(?:of\\\\s+)?(${monthPattern})(?:\\\\s+(20\\\\d{2}))?`,\n      \"i\"\n    );\n\n  /*\n   * October fifth\n   * October 5th\n   * October 5\n   */\n  const monthDay =\n    new RegExp(\n      `(${monthPattern})\\\\s+(?:the\\\\s+)?(${ordinalPattern}|\\\\d{1,2}(?:st|nd|rd|th)?)(?:\\\\s+(20\\\\d{2}))?`,\n      \"i\"\n    );\n\n  let match =\n    normalized.match(\n      dayMonth\n    );\n\n  let day =\n    0;\n\n  let month =\n    -1;\n\n  let year =\n    now.getFullYear();\n\n  let explicitYear =\n    false;\n\n  if (match) {\n    day =\n      resolveDay(\n        match[1]\n      );\n\n    month =\n      months[\n        match[2]\n          .toLowerCase()\n      ];\n\n    if (\n      match[3]\n    ) {\n      year =\n        Number(\n          match[3]\n        );\n\n      explicitYear =\n        true;\n    }\n  } else {\n    match =\n      normalized.match(\n        monthDay\n      );\n\n    if (match) {\n      month =\n        months[\n          match[1]\n            .toLowerCase()\n        ];\n\n      day =\n        resolveDay(\n          match[2]\n        );\n\n      if (\n        match[3]\n      ) {\n        year =\n          Number(\n            match[3]\n          );\n\n        explicitYear =\n          true;\n      }\n    }\n  }\n\n  if (\n    !day ||\n    month < 0\n  ) {\n    return \"\";\n  }\n\n  let candidate =\n    new Date(\n      year,\n      month,\n      day\n    );\n\n  candidate.setHours(\n    0,\n    0,\n    0,\n    0\n  );\n\n  /*\n   * Reject impossible dates:\n   *\n   * February 31\n   * April 31\n   * etc.\n   */\n  if (\n    candidate.getDate() !==\n      day ||\n    candidate.getMonth() !==\n      month\n  ) {\n    return \"\";\n  }\n\n  /*\n   * If no year was given and the date\n   * already passed this year, use next year.\n   */\n  if (\n    !explicitYear &&\n    candidate <\n      now\n  ) {\n    candidate =\n      new Date(\n        year + 1,\n        month,\n        day\n      );\n  }\n\n  return isoLocal(\n    candidate\n  );\n}\n\n/*\n * ==================================================\n * ORDINAL PARSER\n * ==================================================\n *\n * Context decides what the ordinal means.\n *\n * awaiting_doctor:\n *   first one = doctor 1\n *\n * awaiting_time:\n *   first one = time slot 1\n *\n * awaiting_date:\n *   date parser runs instead, so\n *   \"fifth of October\" is NOT doctor 5.\n * ==================================================\n */\n\nfunction getOrdinalIndex(\n  text\n) {\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const patterns = [\n    {\n      pattern:\n        /\\b(first one|first|1st|number one|doctor one|dr one|slot one|time one)\\b/,\n      index: 0,\n    },\n\n    {\n      pattern:\n        /\\b(second one|second|2nd|number two|doctor two|dr two|slot two|time two)\\b/,\n      index: 1,\n    },\n\n    {\n      pattern:\n        /\\b(third one|third|3rd|number three|doctor three|dr three|slot three|time three)\\b/,\n      index: 2,\n    },\n\n    {\n      pattern:\n        /\\b(fourth one|fourth|4th|number four|doctor four|dr four|slot four|time four)\\b/,\n      index: 3,\n    },\n\n    {\n      pattern:\n        /\\b(fifth one|fifth|5th|number five|doctor five|dr five|slot five|time five)\\b/,\n      index: 4,\n    },\n\n    {\n      pattern:\n        /\\b(sixth one|sixth|6th|number six|doctor six|dr six|slot six|time six)\\b/,\n      index: 5,\n    },\n  ];\n\n  for (\n    const entry\n    of patterns\n  ) {\n    if (\n      entry.pattern.test(\n        normalized\n      )\n    ) {\n      return entry.index;\n    }\n  }\n\n  return -1;\n}\n\n/*\n * ==================================================\n * DOCTOR MATCHING\n * ==================================================\n */\n\nfunction matchDoctor(\n  text,\n  doctors\n) {\n  if (\n    !Array.isArray(\n      doctors\n    ) ||\n    doctors.length === 0\n  ) {\n    return null;\n  }\n\n  /*\n   * Ordinal selection:\n   *\n   * first doctor\n   * first one\n   * go with the first one\n   */\n  const ordinal =\n    getOrdinalIndex(\n      text\n    );\n\n  if (\n    ordinal >= 0 &&\n    doctors[ordinal]\n  ) {\n    return doctors[\n      ordinal\n    ];\n  }\n\n  /*\n   * Match doctor names:\n   *\n   * Chamodi\n   * Dr Chamodi\n   * Chamodi Bandara\n   */\n  let bestDoctor =\n    null;\n\n  let bestScore =\n    0;\n\n  for (\n    const doctor\n    of doctors\n  ) {\n    const doctorName =\n      String(\n        doctor.doctorName ||\n          doctor.name ||\n          \"\"\n      )\n        .toLowerCase()\n        .replace(\n          /\\bdoctor\\b/g,\n          \"\"\n        )\n        .replace(\n          /\\bdr\\.?\\b/g,\n          \"\"\n        )\n        .trim();\n\n    const nameParts =\n      doctorName\n        .split(\n          /\\s+/\n        )\n        .filter(\n          (part) =>\n            part.length >\n            2\n        );\n\n    const score =\n      nameParts.filter(\n        (part) =>\n          text.includes(\n            part\n          )\n      ).length;\n\n    if (\n      score >\n      bestScore\n    ) {\n      bestScore =\n        score;\n\n      bestDoctor =\n        doctor;\n    }\n  }\n\n  return bestScore > 0\n    ? bestDoctor\n    : null;\n}\n\n/*\n * ==================================================\n * TIME MATCHING\n * ==================================================\n *\n * Supports:\n *\n * first\n * first one\n * first time\n * first slot\n *\n * second\n * second one\n * second time slot\n *\n * 5 pm\n * 5:00 pm\n *\n * exact slot text\n * ==================================================\n */\n\nfunction extractTime(\n  text,\n  slots\n) {\n  if (\n    !Array.isArray(\n      slots\n    ) ||\n    slots.length === 0\n  ) {\n    return \"\";\n  }\n\n  const normalized =\n    String(\n      text || \"\"\n    )\n      .toLowerCase()\n      .replace(\n        /\\s+/g,\n        \" \"\n      )\n      .trim();\n\n  const ordinal =\n    getOrdinalIndex(\n      normalized\n    );\n\n  if (\n    ordinal >= 0 &&\n    slots[ordinal]\n  ) {\n    const candidate =\n      slots[ordinal];\n\n    if (\n      typeof candidate === \"object\" &&\n      candidate?.booked === true\n    ) {\n      return \"\";\n    }\n\n    return String(\n      candidate?.label ||\n      candidate\n    );\n  }\n\n  for (\n    const slot\n    of slots\n  ) {\n    if (\n      typeof slot === \"object\" &&\n      slot?.booked === true\n    ) {\n      continue;\n    }\n\n    const label =\n      String(\n        slot?.label ||\n          slot\n      );\n\n    const lowerLabel =\n      label\n        .toLowerCase();\n\n    const startingTime =\n      lowerLabel\n        .split(\"-\")[0]\n        .trim();\n\n    if (\n      normalized.includes(\n        lowerLabel\n      ) ||\n      normalized.includes(\n        startingTime\n      )\n    ) {\n      return label;\n    }\n  }\n\n  const spokenTime =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (\n    spokenTime\n  ) {\n    const hour =\n      spokenTime[1];\n\n    const minutes =\n      spokenTime[2] ||\n      \"00\";\n\n    const meridiem =\n      spokenTime[3]\n        .toUpperCase();\n\n    const requested =\n      `${hour}:${minutes} ${meridiem}`;\n\n    for (\n      const slot\n      of slots\n    ) {\n      if (\n        typeof slot === \"object\" &&\n        slot?.booked === true\n      ) {\n        continue;\n      }\n\n      const label =\n        String(\n          slot?.label ||\n            slot\n        );\n\n      if (\n        label\n          .toLowerCase()\n          .includes(\n            requested\n              .toLowerCase()\n          )\n      ) {\n        return label;\n      }\n    }\n  }\n\n  return \"\";\n}\n\n\n/*\n * ==================================================\n * CANCEL / RESCHEDULE HELPERS\n * ==================================================\n */\n\nfunction extractAppointmentId(\n  text\n) {\n  const normalized =\n    String(text || \"\")\n      .toLowerCase()\n      .replace(/[,?.!]/g, \" \")\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n  const explicit =\n    normalized.match(\n      /\\b(?:appointment|appointment number|appointment id|reference|reference number|booking|booking number)\\s*(?:number|id|no\\.?)?\\s*#?\\s*(\\d+)\\b/i\n    );\n\n  if (explicit) {\n    return explicit[1];\n  }\n\n  if (\n    operationState.stage ===\n      \"cancel_awaiting_id\" ||\n    operationState.stage ===\n      \"reschedule_awaiting_id\"\n  ) {\n    const standalone =\n      normalized.match(\n        /^\\s*#?\\s*(\\d+)\\s*$/\n      );\n\n    if (standalone) {\n      return standalone[1];\n    }\n  }\n\n  return \"\";\n}\n\nfunction extractFlexibleTime(\n  text\n) {\n  let normalized =\n    String(text || \"\")\n      .toLowerCase()\n      .replace(/[,?.!]/g, \" \")\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n  const wordHours = {\n    one: \"1\",\n    two: \"2\",\n    three: \"3\",\n    four: \"4\",\n    five: \"5\",\n    six: \"6\",\n    seven: \"7\",\n    eight: \"8\",\n    nine: \"9\",\n    ten: \"10\",\n    eleven: \"11\",\n    twelve: \"12\",\n  };\n\n  normalized =\n    normalized.replace(\n      /\\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s*(am|pm)\\b/g,\n      (_, word, meridiem) =>\n        `${wordHours[word]} ${meridiem}`\n    );\n\n  const range =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\s*(?:-|to)\\s*(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (range) {\n    const startMinutes =\n      range[2] || \"00\";\n\n    const endMinutes =\n      range[5] || \"00\";\n\n    return `${Number(range[1])}:${startMinutes} ${range[3].toUpperCase()} - ${Number(range[4])}:${endMinutes} ${range[6].toUpperCase()}`;\n  }\n\n  const single =\n    normalized.match(\n      /\\b(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b/i\n    );\n\n  if (single) {\n    const minutes =\n      single[2] || \"00\";\n\n    return `${Number(single[1])}:${minutes} ${single[3].toUpperCase()}`;\n  }\n\n  return \"\";\n}\n\nfunction isYes(\n  text\n) {\n  return /^(yes|yeah|yep|confirm|confirmed|please do|do it|go ahead|sure|okay|ok)$/i.test(\n    String(text || \"\").trim()\n  );\n}\n\nfunction isNo(\n  text\n) {\n  return /^(no|nope|cancel that|stop|never mind|nevermind|do not|don't)$/i.test(\n    String(text || \"\").trim()\n  );\n}\n\nfunction saveOperationState() {\n  store.appointmentActionStates[\n    sessionId\n  ] = operationState;\n}\n\nfunction clearOperationState() {\n  delete store\n    .appointmentActionStates[\n      sessionId\n    ];\n\n  operationState = {\n    type: \"\",\n    stage: \"idle\",\n    appointmentId: \"\",\n    newAppointmentDate: \"\",\n    newAppointmentTime: \"\",\n    cancellationReason: \"\",\n  };\n}\n\n/*\n * ==================================================\n * INTENT / ACTION FLAGS\n * ==================================================\n */\n\nconst action =\n  String(\n    item.action ||\n      \"\"\n  )\n    .toLowerCase()\n    .trim();\n\nconst selectedDoctor =\n  parseDoctor(\n    item.selectedDoctor\n  );\n\nconst asksForDoctorList =\n  /\\b(available doctors|available doctor|who are the doctors|list doctors|show doctors|doctors available)\\b/.test(\n    msg\n  );\n\nconst startsBooking =\n  /\\b(book|booking|appointment|schedule)\\b/.test(\n    msg\n  );\n\n/*\n * A new general booking request.\n *\n * Examples:\n *\n * Can I book an appointment?\n * I want to book an appointment\n * Book an appointment\n * Schedule an appointment\n */\nconst freshBookingRequest =\n  startsBooking &&\n  /\\b(can i book|i want to book|i would like to book|book an appointment|make an appointment|schedule an appointment|new appointment)\\b/.test(\n    msg\n  ) &&\n  !selectedDoctor;\n\n/*\n * Availability language.\n */\nconst asksAvailability =\n  /\\b(available dates|available date|available days|what days|which days|what dates|which dates|available times|available time|what times|which times|when is|when are|availability|show availability|tell me.*available)\\b/.test(\n    msg\n  );\n\nconst asksFAQ =\n  /\\b(hour|open|close|location|address|contact|phone|email|fee|cost|price|insurance|walk-in|service|services)\\b/.test(\n    msg\n  );\n\nconst asksSymptoms =\n  /\\b(chest pain|chest tightness|shortness of breath|difficulty breathing|breath|bleeding|stroke|fever|headache|migraine|dizzy|dizziness|pain|symptom|cough|sore throat|cold|flu|vomit|vomiting|nausea|diarrhea|rash|fatigue|weakness|numb|numbness|seizure|palpitation|palpitations|heart racing|stomach pain|abdominal pain|back pain|child|baby|pediatric|paediatric|not feeling well|feel unwell|feeling unwell)\\b/.test(\n    msg\n  );\n\nconst startsCancellation =\n  action === \"cancel_appointment\" ||\n  /\\b(cancel|cancelled|cancellation)\\b/.test(\n    msg\n  );\n\nconst startsReschedule =\n  action === \"reschedule_appointment\" ||\n  /\\b(reschedule|rescheduled|move appointment|change appointment|change my appointment|move my appointment)\\b/.test(\n    msg\n  );\n\nconst providedAppointmentId =\n  String(\n    item.appointmentId ||\n    extractAppointmentId(msg) ||\n    \"\"\n  ).trim();\n\nconst providedNewDate =\n  String(\n    item.newAppointmentDate ||\n    \"\"\n  ).trim() ||\n  extractDate(msg);\n\nconst providedNewTime =\n  String(\n    item.newAppointmentTime ||\n    \"\"\n  ).trim() ||\n  extractFlexibleTime(msg);\n\nlet route =\n  \"general\";\n\n\n/*\n * ==================================================\n * CANCEL / RESCHEDULE STATE MACHINE\n * ==================================================\n *\n * This is intentionally separate from bookingStates\n * so the proven booking flow is not overwritten.\n */\n\n/*\n * ==================================================\n * FRESH CANCEL / RESCHEDULE REQUESTS\n * ==================================================\n *\n * An explicit command containing an appointment ID\n * always starts a fresh operation, even if an older\n * operation state was left behind by a previous\n * interrupted workflow execution.\n */\n\n/*\n * Fresh cancellation request.\n */\nif (\n  startsCancellation &&\n  (\n    operationState.stage === \"idle\" ||\n    providedAppointmentId\n  )\n) {\n  /*\n   * Cancel any stale booking conversation state.\n   * Appointment management takes priority.\n   */\n  state = {\n    ...state,\n    stage: \"idle\",\n    selectedDoctor: null,\n    selectedDate: \"\",\n    displayDate: \"\",\n    dayName: \"\",\n    selectedTime: \"\",\n    availableSlots: [],\n    availabilitySummaryRequested: false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  operationState = {\n    type: \"cancel\",\n\n    stage:\n      providedAppointmentId\n        ? \"lookup\"\n        : \"cancel_awaiting_id\",\n\n    appointmentId:\n      providedAppointmentId,\n\n    newAppointmentDate: \"\",\n\n    newAppointmentTime: \"\",\n\n    cancellationReason:\n      String(\n        item.cancellationReason ||\n        \"\"\n      ).trim(),\n  };\n\n  saveOperationState();\n\n  route =\n    providedAppointmentId\n      ? \"appointment_lookup\"\n      : \"operation_prompt\";\n}\n\n/*\n * Fresh reschedule request.\n */\nelse if (\n  startsReschedule &&\n  (\n    operationState.stage === \"idle\" ||\n    providedAppointmentId\n  )\n) {\n  /*\n   * Reset stale normal-booking state.\n   * Rescheduling is a different operation.\n   */\n  state = {\n    ...state,\n    stage: \"idle\",\n    selectedDoctor: null,\n    selectedDate: \"\",\n    displayDate: \"\",\n    dayName: \"\",\n    selectedTime: \"\",\n    availableSlots: [],\n    availabilitySummaryRequested: false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  operationState = {\n    type: \"reschedule\",\n\n    stage:\n      providedAppointmentId\n        ? \"lookup\"\n        : \"reschedule_awaiting_id\",\n\n    appointmentId:\n      providedAppointmentId,\n\n    newAppointmentDate:\n      providedNewDate,\n\n    newAppointmentTime:\n      providedNewTime,\n\n    cancellationReason: \"\",\n  };\n\n  saveOperationState();\n\n  route =\n    providedAppointmentId\n      ? \"appointment_lookup\"\n      : \"operation_prompt\";\n}\n\n/*\n * Waiting for cancellation appointment number.\n */\nelse if (\n  operationState.stage ===\n    \"cancel_awaiting_id\"\n) {\n  const id =\n    providedAppointmentId ||\n    extractAppointmentId(msg);\n\n  if (id) {\n    operationState.appointmentId =\n      id;\n\n    operationState.stage =\n      \"lookup\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_lookup\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for reschedule appointment number.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_id\"\n) {\n  const id =\n    providedAppointmentId ||\n    extractAppointmentId(msg);\n\n  if (id) {\n    operationState.appointmentId =\n      id;\n\n    if (providedNewDate) {\n      operationState.newAppointmentDate =\n        providedNewDate;\n    }\n\n    if (providedNewTime) {\n      operationState.newAppointmentTime =\n        providedNewTime;\n    }\n\n    operationState.stage =\n      \"lookup\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_lookup\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Cancellation confirmation.\n */\nelse if (\n  operationState.stage ===\n    \"cancel_awaiting_confirmation\"\n) {\n  if (\n    isYes(msg)\n  ) {\n    operationState.stage =\n      \"cancel_executing\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_cancel\";\n  } else if (\n    isNo(msg)\n  ) {\n    clearOperationState();\n\n    route =\n      \"operation_prompt\";\n\n    item.operationPrompt =\n      \"Okay, I will not cancel that appointment.\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for new reschedule date.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_date\"\n) {\n  const date =\n    providedNewDate ||\n    extractDate(msg);\n\n  if (date) {\n    operationState.newAppointmentDate =\n      date;\n\n    const time =\n      providedNewTime ||\n      extractFlexibleTime(msg);\n\n    if (time) {\n      operationState.newAppointmentTime =\n        time;\n\n      operationState.stage =\n        \"reschedule_executing\";\n\n      saveOperationState();\n\n      route =\n        \"appointment_reschedule\";\n    } else {\n      /*\n       * Date was selected but no time was supplied.\n       * Query the doctor's configured schedule plus\n       * current DB bookings before showing time buttons.\n       */\n      operationState.newAppointmentTime =\n        \"\";\n\n      operationState.stage =\n        \"reschedule_loading_slots\";\n\n      saveOperationState();\n\n      route =\n        \"reschedule_slots\";\n    }\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * Waiting for new reschedule time.\n */\nelse if (\n  operationState.stage ===\n    \"reschedule_awaiting_time\"\n) {\n  const time =\n    providedNewTime ||\n    extractFlexibleTime(msg);\n\n  if (time) {\n    operationState.newAppointmentTime =\n      time;\n\n    operationState.stage =\n      \"reschedule_executing\";\n\n    saveOperationState();\n\n    route =\n      \"appointment_reschedule\";\n  } else {\n    route =\n      \"operation_prompt\";\n  }\n}\n\n/*\n * ==================================================\n * SYMPTOM -> DOCTOR BOOKING HANDOFF\n * ==================================================\n *\n * The symptom recommendation flow stores one real\n * doctor in bookingStates and waits for the patient\n * to accept or decline the suggested booking.\n *\n * Text and voice both arrive here after normalization.\n */\nelse if (\n  state.stage ===\n    \"awaiting_symptom_booking_confirmation\"\n) {\n  const acceptsRecommendation =\n    isYes(msg) ||\n    /\\b(yes please|book it|book with (?:this|that|the) doctor|book (?:this|that) doctor|i(?:'d| would) like to book|make the appointment|schedule it|go ahead and book)\\b/i.test(\n      originalMessage\n    );\n\n  const declinesRecommendation =\n    isNo(msg) ||\n    /\\b(not now|maybe later|no thanks|no thank you|do not book|don't book)\\b/i.test(\n      originalMessage\n    );\n\n  if (\n    acceptsRecommendation &&\n    state.selectedDoctor\n  ) {\n    state.stage =\n      \"awaiting_date\";\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else if (\n    declinesRecommendation\n  ) {\n    state = {\n      ...state,\n\n      stage:\n        \"idle\",\n\n      selectedDoctor:\n        null,\n\n      selectedDate:\n        \"\",\n\n      displayDate:\n        \"\",\n\n      dayName:\n        \"\",\n\n      selectedTime:\n        \"\",\n\n      availableSlots:\n        [],\n\n      symptomContext:\n        null,\n    };\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    item.symptomFollowupPrompt =\n      \"Okay, I will not start an appointment booking. If your symptoms worsen or you develop urgent warning signs, seek prompt in-person medical care. You can ask me about another doctor or start a booking whenever you are ready.\";\n\n    route =\n      \"symptom\";\n  } else {\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    const doctorName =\n      state.selectedDoctor?.doctorName ||\n      state.selectedDoctor?.name ||\n      \"the recommended doctor\";\n\n    item.symptomFollowupPrompt =\n      `Would you like to book an appointment with ${doctorName}? Please say yes to continue to date selection, or no to continue without booking.`;\n\n    route =\n      \"symptom\";\n  }\n}\n\n/*\n * ==================================================\n * 1. STRUCTURED UI: DOCTOR SELECTED\n * ==================================================\n *\n * Existing Doctor Card button.\n */\n\nelse if (\n  action ===\n    \"select_doctor\" ||\n  action ===\n    \"has_doctor\"\n) {\n  if (\n    selectedDoctor\n  ) {\n    state.selectedDoctor =\n      selectedDoctor;\n\n    state.stage =\n      \"awaiting_date\";\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    route =\n      \"booking_doctors\";\n  }\n}\n\n/*\n * ==================================================\n * 2. STRUCTURED UI: DATE SELECTED\n * ==================================================\n *\n * Calendar click.\n */\n\nelse if (\n  action ===\n  \"select_date\"\n) {\n  const date =\n    String(\n      item.selectedDate ||\n        \"\"\n    );\n\n  state.selectedDate =\n    date;\n\n  state.displayDate =\n    item.displayDate ||\n    date;\n\n  state.dayName =\n    item.dayName ||\n    (\n      date\n        ? dayName(\n            date\n          )\n        : \"\"\n    );\n\n  state.selectedTime =\n    \"\";\n\n  state.availableSlots =\n    [];\n\n  state.availabilitySummaryRequested =\n    false;\n\n  state.stage =\n    \"awaiting_time\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_slots\";\n}\n\n/*\n * ==================================================\n * 3. STRUCTURED UI: TIME CONFIRMATION\n * ==================================================\n *\n * Time selection from the UI appointment\n * confirmation flow.\n */\n\nelse if (\n  action ===\n  \"confirm_booking\"\n) {\n  state.selectedTime =\n    String(\n      item.selectedTime ||\n        \"\"\n    );\n\n  state.stage =\n    \"confirming\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_confirm\";\n}\n\n/*\n * ==================================================\n * 4. FRESH BOOKING\n * ==================================================\n *\n * Reset stale doctor/date/time values.\n *\n * Works for BOTH text and voice.\n */\n\nelse if (\n  freshBookingRequest\n) {\n  state = {\n    stage:\n      \"idle\",\n\n    currentDoctors:\n      Array.isArray(\n        state.currentDoctors\n      )\n        ? state.currentDoctors\n        : [],\n\n    selectedDoctor:\n      null,\n\n    selectedDate:\n      \"\",\n\n    displayDate:\n      \"\",\n\n    dayName:\n      \"\",\n\n    selectedTime:\n      \"\",\n\n    availableSlots:\n      [],\n\n    availabilitySummaryRequested:\n      false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"booking_doctors\";\n}\n\n/*\n * ==================================================\n * 5. DOCTOR LIST REQUEST\n * ==================================================\n */\n\nelse if (\n  asksForDoctorList\n) {\n  state = {\n    ...state,\n\n    stage:\n      \"idle\",\n\n    selectedDoctor:\n      null,\n\n    selectedDate:\n      \"\",\n\n    displayDate:\n      \"\",\n\n    dayName:\n      \"\",\n\n    selectedTime:\n      \"\",\n\n    availableSlots:\n      [],\n\n    availabilitySummaryRequested:\n      false,\n  };\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  route =\n    \"doctors\";\n}\n\n/*\n * ==================================================\n * 6. WAITING FOR DOCTOR\n * ==================================================\n *\n * CRITICAL:\n *\n * Ordinals are interpreted as doctors ONLY\n * while stage === awaiting_doctor.\n *\n * Therefore:\n *\n * \"Go with the first doctor\"\n *          ↓\n * doctor 1\n *\n * But after doctor selection:\n *\n * \"Fifth of October\"\n *\n * will NOT be interpreted as doctor 5.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_doctor\"\n) {\n  const doctor =\n    matchDoctor(\n      msg,\n      state.currentDoctors\n    );\n\n  if (\n    doctor\n  ) {\n    state.selectedDoctor =\n      doctor;\n\n    state.selectedDate =\n      \"\";\n\n    state.displayDate =\n      \"\";\n\n    state.dayName =\n      \"\";\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    state.stage =\n      \"awaiting_date\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  } else {\n    route =\n      \"booking_doctors\";\n  }\n}\n\n/*\n * ==================================================\n * 7. GENERIC BOOKING START\n * ==================================================\n */\n\nelse if (\n  startsBooking &&\n  !startsCancellation &&\n  !startsReschedule &&\n  operationState.stage === \"idle\" &&\n  state.stage === \"idle\"\n) {\n  route =\n    \"booking_doctors\";\n}\n\n/*\n * ==================================================\n * 8. WAITING FOR DATE\n * ==================================================\n *\n * Works for BOTH text and voice:\n *\n * Fifth of October\n * October fifth\n * 5th October\n * October 5\n * today\n * tomorrow\n *\n * Clicking the calendar still works through\n * action === select_date.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_date\"\n) {\n  const naturalDate =\n    extractDate(\n      msg\n    );\n\n  if (\n    naturalDate\n  ) {\n    state.selectedDate =\n      naturalDate;\n\n    state.displayDate =\n      naturalDate;\n\n    state.dayName =\n      dayName(\n        naturalDate\n      );\n\n    state.selectedTime =\n      \"\";\n\n    state.availableSlots =\n      [];\n\n    state.availabilitySummaryRequested =\n      false;\n\n    state.stage =\n      \"awaiting_time\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_slots\";\n  } else {\n    /*\n     * Example:\n     *\n     * What dates and times are available?\n     */\n    state.availabilitySummaryRequested =\n      asksAvailability;\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_calendar\";\n  }\n}\n\n/*\n * ==================================================\n * 9. WAITING FOR TIME\n * ==================================================\n *\n * This is also the stage that Format Booking Result\n * MUST restore after a failed booking.\n *\n * Examples:\n *\n * First one\n * Go with the first one\n * Second one\n * Then go with the second one\n * Second time slot\n * 6 PM\n *\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"awaiting_time\"\n) {\n  const naturalTime =\n    extractTime(\n      msg,\n      state.availableSlots\n    );\n\n  if (\n    naturalTime\n  ) {\n    /*\n     * Preserve the selected slot.\n     */\n    state.selectedTime =\n      naturalTime;\n\n    /*\n     * Immediately attempt booking.\n     *\n     * We do not need an extra:\n     *\n     * \"Can you confirm?\"\n     *\n     * turn.\n     */\n    state.stage =\n      \"confirming\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  } else {\n    /*\n     * Could not understand the requested time.\n     *\n     * Keep state intact and show times again.\n     */\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_slots\";\n  }\n}\n\n/*\n * ==================================================\n * 10. CONFIRMING\n * ==================================================\n *\n * Normally the database booking happens immediately\n * after entering this state.\n *\n * This fallback prevents random messages from\n * destroying the booking context if another request\n * arrives before result-state handling finishes.\n * ==================================================\n */\n\nelse if (\n  state.stage ===\n    \"confirming\"\n) {\n  /*\n   * If user explicitly gives another time while\n   * we're still marked confirming, allow recovery.\n   */\n  const alternativeTime =\n    extractTime(\n      msg,\n      state.availableSlots\n    );\n\n  if (\n    alternativeTime\n  ) {\n    state.selectedTime =\n      alternativeTime;\n\n    state.stage =\n      \"confirming\";\n\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  } else {\n    /*\n     * Keep context rather than falling to Gemini/general.\n     */\n    store.bookingStates[\n      sessionId\n    ] = state;\n\n    route =\n      \"booking_confirm\";\n  }\n}\n\n/*\n * ==================================================\n * 11. NON-BOOKING ROUTES\n * ==================================================\n */\n\nelse if (\n  /\\b(doctor|doctors|specialist|cardiologist|neurologist|pediatric|gp|general practitioner)\\b/.test(\n    msg\n  )\n) {\n  route =\n    \"doctors\";\n}\n\nelse if (\n  asksFAQ\n) {\n  route =\n    \"faq\";\n}\n\nelse if (\n  asksSymptoms\n) {\n  route =\n    \"symptom\";\n}\n\n/*\n * ==================================================\n * OUTPUT\n * ==================================================\n */\n\nconst out = {\n  ...item,\n\n  /*\n   * Original user text/STT transcript.\n   */\n  normalizedMessage:\n    originalMessage,\n\n  route,\n\n  voiceMode,\n\n  state,\n\n  selectedDoctor:\n    state.selectedDoctor ||\n    selectedDoctor ||\n    null,\n\n  selectedDate:\n    state.selectedDate ||\n    item.selectedDate ||\n    \"\",\n\n  displayDate:\n    state.displayDate ||\n    item.displayDate ||\n    \"\",\n\n  dayName:\n    state.dayName ||\n    item.dayName ||\n    \"\",\n\n  selectedTime:\n    state.selectedTime ||\n    item.selectedTime ||\n    \"\",\n\n  operationState,\n\n  appointmentId:\n    operationState.appointmentId ||\n    item.appointmentId ||\n    \"\",\n\n  newAppointmentDate:\n    operationState.newAppointmentDate ||\n    item.newAppointmentDate ||\n    \"\",\n\n  newAppointmentTime:\n    operationState.newAppointmentTime ||\n    item.newAppointmentTime ||\n    \"\",\n\n  cancellationReason:\n    operationState.cancellationReason ||\n    item.cancellationReason ||\n    \"\",\n\n  operationPrompt:\n    item.operationPrompt ||\n    \"\",\n};\n\nreturn [\n  {\n    json:\n      out,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        288
+      ],
+      "id": "d2be27b5-f980-42b6-8abc-686e18e108fc",
+      "name": "Route + Booking State"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "015d4b97-b70d-4d0c-847a-c19a83327192",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "doctors",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "doctors"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1382ea70-8b90-42cf-8f99-cfb25d3c23b1",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "booking_doctors",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "booking_doctors"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ac2cd61f-7012-4805-86f3-f2f591e965fa",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "booking_calendar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "booking_calendar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "af3107be-3c9c-48d4-ae3f-53502d9d0941",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "booking_slots",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "booking_slots"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "45f789c3-d7cc-4d96-96d9-10ad0c7b311e",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "booking_confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "booking_confirm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a2eb224f-4ebf-4e0f-b7a2-b24220e7ab43",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "faq",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "faq"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5334cb80-497b-4455-a5df-73146b0307ac",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "symptom",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "symptom"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "24e8f4db-738a-463c-8a7d-762075afb052",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "general",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "general"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "69bcef19-4dc7-466b-ab18-6a49f88c32c8",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "appointment_lookup",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_lookup"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cd1f4316-bc6d-4a99-a106-63b2fc7036f1",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "operation_prompt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "operation_prompt"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4d00b869-5811-44c6-a2c3-1ed992c6c71a",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "appointment_cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_cancel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "926e8021-3032-45aa-8bf9-8f99cbb365e6",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "appointment_reschedule",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_reschedule"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "16342b04-8f4f-4955-ac0d-4dde092e9574",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "reschedule_slots",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reschedule_slots"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        64,
+        272
+      ],
+      "id": "a9e88e29-4545-4763-a2ad-6b6290d63a04",
+      "name": "Route"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, specialization, designation, \"profileImageUrl\", \"yearsOfExperience\", \"availableTimes\" FROM public.doctors ORDER BY name ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        336,
+        -96
+      ],
+      "id": "cb4428ca-7794-431e-b84f-56b2aca6a3e1",
+      "name": "Get Doctors",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "tL1pFfhumacrYGj8",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, specialization, designation, \"profileImageUrl\", \"yearsOfExperience\", \"availableTimes\" FROM public.doctors ORDER BY name ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        336,
+        48
+      ],
+      "id": "e65fd864-3194-4f8b-a4ef-02af6d1b9b60",
+      "name": "Get Booking Doctors",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "tL1pFfhumacrYGj8",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows =\n  $input\n    .all()\n    .map(\n      (item) =>\n        item.json\n    );\n\nconst source =\n  $(\n    \"Route + Booking State\"\n  )\n    .first()\n    .json;\n\nconst sessionId =\n  source.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.bookingStates\n) {\n  store.bookingStates =\n    {};\n}\n\nconst bookingMode =\n  source.route ===\n  \"booking_doctors\";\n\nconst doctors =\n  rows.map(\n    (row) => {\n      let weeklySchedule =\n        row.availableTimes ||\n        {};\n\n      if (\n        typeof weeklySchedule ===\n        \"string\"\n      ) {\n        try {\n          weeklySchedule =\n            JSON.parse(\n              weeklySchedule\n            );\n        } catch {\n          weeklySchedule =\n            {};\n        }\n      }\n\n      return {\n        id:\n          row.id,\n\n        doctorId:\n          row.id,\n\n        doctorName:\n          row.name,\n\n        name:\n          row.name,\n\n        specialization:\n          row.specialization ||\n          \"\",\n\n        designation:\n          row.designation ||\n          \"\",\n\n        profileImageUrl:\n          row.profileImageUrl ||\n          \"\",\n\n        yearsOfExperience:\n          row.yearsOfExperience ||\n          \"\",\n\n        weeklySchedule,\n      };\n    }\n  );\n\nconst previousState =\n  store.bookingStates[\n    sessionId\n  ] || {\n    stage:\n      \"idle\",\n  };\n\n/*\n * IMPORTANT:\n *\n * Always store doctors in exactly the same\n * order that was shown to the user.\n *\n * This enables:\n *\n * \"first doctor\"\n * \"second doctor\"\n * etc.\n */\nconst newState = {\n  ...previousState,\n\n  currentDoctors:\n    doctors,\n\n  lastUpdated:\n    new Date()\n      .toISOString(),\n};\n\nif (\n  bookingMode\n) {\n  newState.stage =\n    \"awaiting_doctor\";\n\n  newState.selectedDoctor =\n    null;\n\n  newState.selectedDate =\n    \"\";\n\n  newState.displayDate =\n    \"\";\n\n  newState.dayName =\n    \"\";\n\n  newState.selectedTime =\n    \"\";\n\n  newState.availableSlots =\n    [];\n}\n\nstore.bookingStates[\n  sessionId\n] = newState;\n\nconst doctorList =\n  doctors\n    .slice(\n      0,\n      6\n    )\n    .map(\n      (\n        doctor,\n        index\n      ) => {\n        const name =\n          String(\n            doctor.name ||\n              \"Doctor\"\n          ).replace(\n            /Dr\\./gi,\n            \"Doctor\"\n          );\n\n        return `${\n          index + 1\n        }. ${name} - ${\n          doctor.specialization ||\n          \"General Practice\"\n        }`;\n      }\n    )\n    .join(\n      \" \"\n    );\n\nlet reply;\n\nif (\n  doctors.length === 0\n) {\n  reply =\n    \"Sorry, no doctors are available right now.\";\n} else if (\n  bookingMode\n) {\n  reply =\n    `Please choose a doctor. ${doctorList}`;\n} else {\n  reply =\n    `Our available doctors are: ${doctorList}`;\n}\n\nreturn [\n  {\n    json: {\n      intent:\n        bookingMode\n          ? \"booking_doctor_selection\"\n          : \"doctor_list\",\n\n      reply,\n\n      cards:\n        doctors,\n\n      doctors,\n\n      bookingStep:\n        bookingMode\n          ? \"none\"\n          : undefined,\n\n      selectedDoctor:\n        null,\n\n      voiceMode:\n        source.voiceMode,\n\n      requestVoiceReply:\n        source.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        source.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -32
+      ],
+      "id": "53713cae-92c2-4982-bf4e-7fe7e44b3a2d",
+      "name": "Format Doctors"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src =\n  $json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.bookingStates\n) {\n  store.bookingStates =\n    {};\n}\n\nconst state =\n  store.bookingStates[\n    sessionId\n  ] || {};\n\nconst doctor =\n  state.selectedDoctor ||\n  src.selectedDoctor ||\n  {};\n\nlet weeklySchedule =\n  doctor.weeklySchedule ||\n  doctor.availableTimes ||\n  {};\n\nif (\n  typeof weeklySchedule ===\n  \"string\"\n) {\n  try {\n    weeklySchedule =\n      JSON.parse(\n        weeklySchedule\n      );\n  } catch {\n    weeklySchedule =\n      {};\n  }\n}\n\nconst days = [\n  \"sunday\",\n  \"monday\",\n  \"tuesday\",\n  \"wednesday\",\n  \"thursday\",\n  \"friday\",\n  \"saturday\",\n];\n\nconst calendar =\n  [];\n\nconst today =\n  new Date();\n\ntoday.setHours(\n  0,\n  0,\n  0,\n  0\n);\n\nfor (\n  let offset = 0;\n  offset < 30;\n  offset++\n) {\n  const date =\n    new Date(\n      today\n    );\n\n  date.setDate(\n    today.getDate() +\n      offset\n  );\n\n  const dayKey =\n    days[\n      date.getDay()\n    ];\n\n  const dateString =\n    `${date.getFullYear()}-${String(\n      date.getMonth() + 1\n    ).padStart(\n      2,\n      \"0\"\n    )}-${String(\n      date.getDate()\n    ).padStart(\n      2,\n      \"0\"\n    )}`;\n\n  const slots =\n    Array.isArray(\n      weeklySchedule[\n        dayKey\n      ]\n    )\n      ? weeklySchedule[\n          dayKey\n        ]\n      : [];\n\n  calendar.push({\n    date:\n      dateString,\n\n    displayDate:\n      dateString,\n\n    dayName:\n      dayKey,\n\n    available:\n      slots.length >\n      0,\n\n    timeSlots:\n      slots,\n  });\n}\n\nstate.stage =\n  \"awaiting_date\";\n\nconst wantsSummary =\n  state\n    .availabilitySummaryRequested ===\n  true;\n\nstate.availabilitySummaryRequested =\n  false;\n\nstore.bookingStates[\n  sessionId\n] = state;\n\nconst doctorName =\n  doctor.doctorName ||\n  doctor.name ||\n  \"the doctor\";\n\nlet reply =\n  `Please choose an available date for ${doctorName}.`;\n\n/*\n * Voice question:\n *\n * \"What dates and times are available?\"\n */\nif (\n  wantsSummary\n) {\n  const available =\n    calendar\n      .filter(\n        (day) =>\n          day.available\n      )\n      .slice(\n        0,\n        7\n      );\n\n  if (\n    available.length >\n    0\n  ) {\n    const summary =\n      available\n        .map(\n          (day) => {\n            return `${day.date}: ${day.timeSlots.join(\n              \", \"\n            )}`;\n          }\n        )\n        .join(\n          \"; \"\n        );\n\n    reply =\n      `${doctorName} has these upcoming available dates and times: ${summary}. Please choose a date.`;\n  } else {\n    reply =\n      `I could not find any configured available dates for ${doctorName} in the next 30 days.`;\n  }\n}\n\nreturn [\n  {\n    json: {\n      intent:\n        \"calendar_selection\",\n\n      bookingStep:\n        \"date\",\n\n      reply,\n\n      calendar,\n\n      selectedDoctor:\n        doctor,\n\n      selectedDate:\n        state.selectedDate ||\n        \"\",\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        192
+      ],
+      "id": "d6f494ce-aa62-4cbd-8f86-d9f031490ff3",
+      "name": "Build Calendar"
+    },
+    {
+      "parameters": {
+        "jsCode": "const row =\n  $json || {};\n\nconst src =\n  $(\"Route + Booking State\")\n    .first()\n    .json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.bookingStates\n) {\n  store.bookingStates =\n    {};\n}\n\nconst state =\n  store.bookingStates[\n    sessionId\n  ] || {};\n\nconst doctor =\n  state.selectedDoctor ||\n  src.selectedDoctor ||\n  {};\n\nconst selectedDate =\n  state.selectedDate ||\n  src.selectedDate ||\n  \"\";\n\nconst displayDate =\n  state.displayDate ||\n  src.displayDate ||\n  selectedDate;\n\nconst doctorName =\n  doctor.doctorName ||\n  doctor.name ||\n  row.name ||\n  \"the doctor\";\n\nlet weeklySchedule =\n  row.availableTimes ||\n  doctor.weeklySchedule ||\n  doctor.availableTimes ||\n  {};\n\nif (\n  typeof weeklySchedule ===\n  \"string\"\n) {\n  try {\n    weeklySchedule =\n      JSON.parse(\n        weeklySchedule\n      );\n  } catch {\n    weeklySchedule =\n      {};\n  }\n}\n\nlet bookedTimes =\n  row.bookedTimes ||\n  [];\n\nif (\n  typeof bookedTimes ===\n  \"string\"\n) {\n  try {\n    bookedTimes =\n      JSON.parse(\n        bookedTimes\n      );\n  } catch {\n    bookedTimes =\n      [];\n  }\n}\n\nif (\n  !Array.isArray(\n    bookedTimes\n  )\n) {\n  bookedTimes =\n    [];\n}\n\nfunction getDayName(\n  dateString\n) {\n  if (!dateString) {\n    return \"\";\n  }\n\n  const date =\n    new Date(\n      `${dateString}T12:00:00`\n    );\n\n  return [\n    \"sunday\",\n    \"monday\",\n    \"tuesday\",\n    \"wednesday\",\n    \"thursday\",\n    \"friday\",\n    \"saturday\",\n  ][date.getDay()];\n}\n\nfunction slotStartToDbTime(\n  label\n) {\n  const start =\n    String(\n      label || \"\"\n    )\n      .split(\" - \")[0]\n      .trim();\n\n  const match =\n    start.match(\n      /^(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)$/i\n    );\n\n  if (!match) {\n    const dbMatch =\n      start.match(\n        /^(\\d{1,2}):(\\d{2})(?::(\\d{2}))?$/\n      );\n\n    if (!dbMatch) {\n      return \"\";\n    }\n\n    return `${String(\n      Number(\n        dbMatch[1]\n      )\n    ).padStart(\n      2,\n      \"0\"\n    )}:${dbMatch[2]}:${dbMatch[3] || \"00\"}`;\n  }\n\n  let hour =\n    Number(\n      match[1]\n    );\n\n  const minutes =\n    match[2] ||\n    \"00\";\n\n  const meridiem =\n    match[3]\n      .toLowerCase();\n\n  if (\n    meridiem === \"pm\" &&\n    hour !== 12\n  ) {\n    hour += 12;\n  }\n\n  if (\n    meridiem === \"am\" &&\n    hour === 12\n  ) {\n    hour = 0;\n  }\n\n  return `${String(\n    hour\n  ).padStart(\n    2,\n    \"0\"\n  )}:${minutes}:00`;\n}\n\nconst dayKey =\n  getDayName(\n    selectedDate\n  );\n\nconst rawSlots =\n  Array.isArray(\n    weeklySchedule[\n      dayKey\n    ]\n  )\n    ? weeklySchedule[\n        dayKey\n      ]\n    : [];\n\nconst bookedSet =\n  new Set(\n    bookedTimes.map(\n      (value) =>\n        String(\n          value || \"\"\n        )\n          .slice(\n            0,\n            8\n          )\n    )\n  );\n\nconst timeSlots =\n  rawSlots.map(\n    (label) => {\n      const dbTime =\n        slotStartToDbTime(\n          label\n        );\n\n      return {\n        label:\n          String(\n            label\n          ),\n\n        booked:\n          dbTime\n            ? bookedSet.has(\n                dbTime\n              )\n            : false,\n      };\n    }\n  );\n\nstate.availableSlots =\n  timeSlots;\n\nstate.selectedTime =\n  \"\";\n\nconst freeSlots =\n  timeSlots.filter(\n    (slot) =>\n      !slot.booked\n  );\n\nif (\n  rawSlots.length ===\n  0\n) {\n  state.stage =\n    \"awaiting_date\";\n\n  state.selectedDate =\n    \"\";\n\n  state.displayDate =\n    \"\";\n\n  state.dayName =\n    \"\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        intent:\n          \"booking_no_slots\",\n\n        success:\n          false,\n\n        reply:\n          `${doctorName} has no configured appointment times on ${selectedDate}. Please choose another date.`,\n\n        bookingStep:\n          \"date\",\n\n        timeSlots:\n          [],\n\n        selectedDoctor:\n          doctor,\n\n        selectedDate:\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nif (\n  freeSlots.length ===\n  0\n) {\n  state.stage =\n    \"awaiting_date\";\n\n  state.selectedDate =\n    \"\";\n\n  state.displayDate =\n    \"\";\n\n  state.dayName =\n    \"\";\n\n  store.bookingStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        intent:\n          \"booking_date_fully_booked\",\n\n        success:\n          false,\n\n        reply:\n          `All configured appointment times for ${doctorName} on ${selectedDate} are already booked. Please choose another date.`,\n\n        bookingStep:\n          \"date\",\n\n        timeSlots,\n\n        selectedDoctor:\n          doctor,\n\n        selectedDate:\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nstate.stage =\n  \"awaiting_time\";\n\nstore.bookingStates[\n  sessionId\n] = state;\n\nconst freeLabels =\n  freeSlots.map(\n    (slot) =>\n      slot.label\n  );\n\nreturn [\n  {\n    json: {\n      intent:\n        \"time_selection\",\n\n      success:\n        true,\n\n      bookingStep:\n        \"time\",\n\n      reply:\n        `Available times for ${doctorName} on ${displayDate}: ${freeLabels.join(\", \")}. Please choose a time.`,\n\n      timeSlots,\n\n      selectedDoctor:\n        doctor,\n\n      selectedDate,\n\n      displayDate,\n\n      dayName:\n        dayKey,\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        336
+      ],
+      "id": "acd31ad2-2bbf-4eac-846b-12e7e61280e6",
+      "name": "Get Time Slots"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src=$json; const sessionId=src.sessionId||'default'; const store=$getWorkflowStaticData('global'); const state=(store.bookingStates||{})[sessionId]||{}; const d=state.selectedDoctor||{}; const start=String(state.selectedTime||'').split(' - ')[0].trim(); return [{json:{sessionId,email:src.email||'',voiceMode:src.voiceMode,doctorId:d.doctorId||d.id||null,doctorName:d.doctorName||d.name||'',selectedDate:state.selectedDate||'',displayDate:state.displayDate||state.selectedDate||'',selectedTime:state.selectedTime||'',appointmentTime:start}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        464
+      ],
+      "id": "221de2f2-0503-4eea-bfd3-d62dc1090d40",
+      "name": "Prepare Booking"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.appointments\n(\n  \"doctorId\",\n  \"patientId\",\n  \"appointmentDate\",\n  \"appointmentTime\",\n  \"type\",\n  \"mode\",\n  \"status\",\n  \"createdAt\",\n  \"updatedAt\"\n)\nSELECT\n  d.id,\n  p.id,\n  $2::date,\n  $3::time,\n\n  CASE\n    WHEN LOWER(COALESCE(d.specialization, '')) LIKE '%general practitioner%'\n      OR LOWER(COALESCE(d.specialization, '')) = 'gp'\n    THEN 'General Consultation'\n\n    WHEN TRIM(COALESCE(d.specialization, '')) <> ''\n    THEN TRIM(d.specialization) || ' Consultation'\n\n    ELSE 'Medical Consultation'\n  END,\n\n  'In-Person',\n  'Confirmed',\n  NOW(),\n  NOW()\n\nFROM public.patients p\n\nJOIN public.doctors d\n  ON d.id = $1::integer\n\nWHERE LOWER(p.email) = LOWER($4)\n\nAND NOT EXISTS (\n  SELECT 1\n  FROM public.appointments a\n  WHERE a.\"doctorId\" = $1::integer\n    AND a.\"appointmentDate\" = $2::date\n    AND a.\"appointmentTime\" = $3::time\n    AND (\n      a.status IS NULL\n      OR LOWER(a.status::text) NOT IN (\n        'cancelled',\n        'canceled'\n      )\n    )\n)\n\nRETURNING\n  id,\n  \"doctorId\",\n  \"patientId\",\n  \"appointmentDate\",\n  \"appointmentTime\",\n  \"type\",\n  \"mode\",\n  status,\n  \"createdAt\";",
+        "options": {
+          "queryReplacement": "={{ $json.doctorId }}, {{ $json.selectedDate }}, {{ $json.appointmentTime }}, {{ $json.email }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        576,
+        464
+      ],
+      "id": "e979ea5b-910f-4ba6-a986-d81c82f880e2",
+      "name": "Book Appointment",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "tL1pFfhumacrYGj8",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const booking =\n  $json || {};\n\nconst src =\n  $(\"Prepare Booking\")\n    .first()\n    .json;\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nif (\n  !store.bookingStates\n) {\n  store.bookingStates =\n    {};\n}\n\nconst state =\n  store.bookingStates[\n    sessionId\n  ] || {};\n\nlet reply;\nlet intent;\nlet success =\n  false;\n\n/*\n * ==================================================\n * SUCCESS\n * ==================================================\n */\n\nif (\n  booking.id\n) {\n  success =\n    true;\n\n  intent =\n    \"booking_confirmed\";\n\n  reply =\n    `Your appointment with ${\n      src.doctorName ||\n      \"the doctor\"\n    } on ${\n      src.displayDate ||\n      src.selectedDate\n    } at ${\n      src.selectedTime\n    } is confirmed. Appointment number ${\n      booking.id\n    }.`;\n\n  /*\n   * Booking finished successfully,\n   * so clear the temporary booking state.\n   */\n  delete store\n    .bookingStates[\n      sessionId\n    ];\n\n  return [\n    {\n      json: {\n        intent,\n\n        success:\n          true,\n\n        bookingConfirmed:\n          true,\n\n        reply,\n\n        appointment:\n          booking,\n\n        appointmentId:\n          booking.id,\n\n        selectedDoctor:\n          state.selectedDoctor ||\n          null,\n\n        selectedDate:\n          src.selectedDate ||\n          state.selectedDate ||\n          \"\",\n\n        selectedTime:\n          src.selectedTime ||\n          state.selectedTime ||\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.voiceMode ===\n            true ||\n          src.requestVoiceReply ===\n            true,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * ==================================================\n * BOOKING FAILED\n * ==================================================\n *\n * IMPORTANT:\n *\n * Do NOT destroy:\n *\n * selectedDoctor\n * selectedDate\n * availableSlots\n *\n * The user should be able to say:\n *\n * \"second one\"\n *\n * immediately after a busy first slot.\n * ==================================================\n */\n\nintent =\n  \"booking_failed\";\n\nsuccess =\n  false;\n\n/*\n * Remove only the failed time choice.\n */\nstate.selectedTime =\n  \"\";\n\n/*\n * Return to time selection.\n */\nstate.stage =\n  \"awaiting_time\";\n\n/*\n * Keep doctor/date/availableSlots.\n */\nstore.bookingStates[\n  sessionId\n] = state;\n\nconst availableSlots =\n  Array.isArray(\n    state.availableSlots\n  )\n    ? state.availableSlots\n    : [];\n\nconst slotLabels =\n  availableSlots\n    .filter(\n      (slot) =>\n        !(\n          typeof slot === \"object\" &&\n          slot?.booked === true\n        )\n    )\n    .map(\n      (slot) =>\n        String(\n          slot?.label ||\n          slot ||\n          \"\"\n        )\n    )\n    .filter(\n      Boolean\n    );\n\nreply =\n  `That appointment time could not be booked. ` +\n  `It may already be reserved. ` +\n  (\n    slotLabels.length >\n    0\n      ? `Please choose another available time: ${slotLabels.join(\n          \", \"\n        )}.`\n      : \"Please choose another available time.\"\n  );\n\nreturn [\n  {\n    json: {\n      intent,\n\n      success:\n        false,\n\n      bookingConfirmed:\n        false,\n\n      bookingStep:\n        \"time\",\n\n      reply,\n\n      timeSlots:\n        availableSlots,\n\n      selectedDoctor:\n        state.selectedDoctor ||\n        null,\n\n      selectedDate:\n        state.selectedDate ||\n        src.selectedDate ||\n        \"\",\n\n      selectedTime:\n        \"\",\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.voiceMode ===\n          true ||\n        src.requestVoiceReply ===\n          true,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        464
+      ],
+      "id": "7d1c7425-18f7-491e-8814-bc21fb4fbccd",
+      "name": "Format Booking Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src =\n  $json;\n\nconst question =\n  String(\n    src.normalizedMessage ||\n    src.message ||\n    src.transcript ||\n    \"\"\n  ).trim();\n\nconst originalRoute =\n  String(\n    src.route ||\n    \"general\"\n  ).trim();\n\nif (!question) {\n  return [\n    {\n      json: {\n        question: \"\",\n        originalRoute,\n        intent:\n          \"rag_input_error\",\n        reply:\n          \"Please enter a question about the medical center.\",\n        nextRoute:\n          \"respond\",\n        voiceMode:\n          src.voiceMode === true,\n        requestVoiceReply:\n          src.requestVoiceReply === true,\n        sessionId:\n          src.sessionId || \"\",\n        email:\n          src.email || \"\",\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      question,\n      message:\n        question,\n      normalizedMessage:\n        question,\n      originalRoute,\n      voiceMode:\n        src.voiceMode === true,\n      requestVoiceReply:\n        src.requestVoiceReply === true,\n      sessionId:\n        src.sessionId || \"\",\n      email:\n        src.email || \"\",\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        640
+      ],
+      "id": "4369e58b-1ad2-4ce6-b563-1543b79e9d42",
+      "name": "Prepare RAG Query"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src =\n  $json;\n\nconst followupPrompt =\n  String(\n    src.symptomFollowupPrompt ||\n    \"\"\n  ).trim();\n\n/*\n * A yes/no follow-up from the symptom recommendation\n * state can come back through this same node without\n * running triage again.\n */\nif (\n  followupPrompt\n) {\n  return [\n    {\n      json: {\n        intent:\n          \"symptom_booking_followup\",\n\n        reply:\n          followupPrompt,\n\n        needsDoctorLookup:\n          false,\n\n        urgency:\n          \"routine\",\n\n        recommendedSpecialty:\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId:\n          src.sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nconst message =\n  String(\n    src.normalizedMessage ||\n    src.message ||\n    src.transcript ||\n    \"\"\n  ).trim();\n\nconst m =\n  message\n    .toLowerCase()\n    .replace(\n      /[,.!?]/g,\n      \" \"\n    )\n    .replace(\n      /\\s+/g,\n      \" \"\n    )\n    .trim();\n\n/*\n * ==================================================\n * EMERGENCY RED FLAGS\n * ==================================================\n *\n * This is deliberately conservative. A routine doctor\n * booking must never be presented as a substitute for\n * emergency evaluation when a clear red flag is present.\n */\nconst emergencyRules = [\n  {\n    pattern:\n      /\\b(chest pain|chest pressure|chest tightness)\\b.*\\b(severe|crushing|sweating|faint|fainting|shortness of breath|difficulty breathing)\\b|\\b(severe|crushing)\\b.*\\b(chest pain|chest pressure|chest tightness)\\b/,\n    reason:\n      \"severe chest symptoms\",\n  },\n\n  {\n    pattern:\n      /\\b(can'?t breathe|cannot breathe|severe shortness of breath|severe difficulty breathing|struggling to breathe)\\b/,\n    reason:\n      \"severe breathing difficulty\",\n  },\n\n  {\n    pattern:\n      /\\b(face droop|facial droop|one[- ]sided weakness|weakness on one side|sudden numbness|slurred speech|cannot speak|can'?t speak|sudden confusion)\\b/,\n    reason:\n      \"possible stroke warning signs\",\n  },\n\n  {\n    pattern:\n      /\\b(worst headache|worst headache of my life|sudden severe headache|thunderclap headache)\\b/,\n    reason:\n      \"a sudden or unusually severe headache\",\n  },\n\n  {\n    pattern:\n      /\\bheadache\\b.*\\b(faint|fainting|confusion|one[- ]sided weakness|weakness on one side|vision loss|seizure|stiff neck)\\b|\\b(faint|fainting|confusion|one[- ]sided weakness|weakness on one side|vision loss|seizure|stiff neck)\\b.*\\bheadache\\b/,\n    reason:\n      \"headache with an urgent warning sign\",\n  },\n\n  {\n    pattern:\n      /\\b(severe bleeding|heavy bleeding|bleeding won'?t stop|uncontrolled bleeding)\\b/,\n    reason:\n      \"severe bleeding\",\n  },\n\n  {\n    pattern:\n      /\\b(unconscious|unresponsive|passed out and not waking|loss of consciousness)\\b/,\n    reason:\n      \"loss of consciousness\",\n  },\n\n  {\n    pattern:\n      /\\b(severe allergic reaction|anaphylaxis|swollen tongue|swelling of the tongue|throat swelling)\\b/,\n    reason:\n      \"a possible severe allergic reaction\",\n  },\n];\n\nconst emergency =\n  emergencyRules.find(\n    (\n      rule\n    ) =>\n      rule.pattern.test(\n        m\n      )\n  );\n\nif (\n  emergency\n) {\n  return [\n    {\n      json: {\n        intent:\n          \"symptom_emergency_guidance\",\n\n        urgency:\n          \"emergency\",\n\n        recommendedSpecialty:\n          \"\",\n\n        needsDoctorLookup:\n          false,\n\n        reply:\n          `The symptoms you described include ${emergency.reason}, which can need urgent medical assessment. Please seek emergency medical care now or contact local emergency services. You may also contact the Medicare Medical Center emergency line at +94 11 234 5679. Do not wait for a routine appointment if symptoms are severe, sudden, or worsening.`,\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId:\n          src.sessionId,\n\n        email:\n          src.email,\n\n        symptomMessage:\n          message,\n      },\n    },\n  ];\n}\n\n/*\n * ==================================================\n * SPECIALTY MAPPING\n * ==================================================\n *\n * This maps symptom categories to a suitable FIRST\n * clinical contact. It does not diagnose the patient.\n */\nlet recommendedSpecialty =\n  \"General Practitioner (GP)\";\n\nlet symptomCategory =\n  \"general\";\n\nlet urgency =\n  \"routine\";\n\nlet guidancePrefix =\n  \"A General Practitioner is a suitable first point of contact for these symptoms.\";\n\nif (\n  /\\b(child|baby|infant|pediatric|paediatric)\\b/.test(\n    m\n  )\n) {\n  recommendedSpecialty =\n    \"Pediatrics\";\n\n  symptomCategory =\n    \"pediatrics\";\n\n  guidancePrefix =\n    \"For a child-related concern, Pediatrics is a suitable first point of contact.\";\n} else if (\n  /\\b(palpitation|palpitations|heart racing|heart concern|heart problem)\\b/.test(\n    m\n  )\n) {\n  recommendedSpecialty =\n    \"Cardiology\";\n\n  symptomCategory =\n    \"cardiology\";\n\n  guidancePrefix =\n    \"For a non-emergency heart-related concern, Cardiology may be an appropriate specialty.\";\n} else if (\n  /\\b(seizure|nerve pain|neurolog|recurrent migraine|recurrent headache|persistent headache|numbness|tingling)\\b/.test(\n    m\n  )\n) {\n  recommendedSpecialty =\n    \"Neurology\";\n\n  symptomCategory =\n    \"neurology\";\n\n  guidancePrefix =\n    \"For persistent or recurrent neurological symptoms, Neurology may be an appropriate specialty.\";\n} else if (\n  /\\b(headache|fever|cough|sore throat|cold|flu|vomit|vomiting|nausea|diarrhea|stomach pain|abdominal pain|back pain|rash|fatigue|dizzy|dizziness|not feeling well|feel unwell|feeling unwell|general pain)\\b/.test(\n    m\n  )\n) {\n  recommendedSpecialty =\n    \"General Practitioner (GP)\";\n\n  symptomCategory =\n    \"general\";\n\n  guidancePrefix =\n    \"A General Practitioner is a suitable first point of contact for these symptoms.\";\n}\n\n/*\n * Severe symptoms without a specific emergency pattern\n * should still be assessed promptly.\n */\nif (\n  /\\b(severe|very bad|getting worse|worsening|intense)\\b/.test(\n    m\n  )\n) {\n  urgency =\n    \"urgent\";\n\n  guidancePrefix =\n    `Because you described the symptoms as severe or worsening, you should be assessed by a clinician as soon as possible today. ${guidancePrefix}`;\n}\n\nreturn [\n  {\n    json: {\n      intent:\n        \"symptom_triage\",\n\n      urgency,\n\n      symptomCategory,\n\n      recommendedSpecialty,\n\n      guidancePrefix,\n\n      needsDoctorLookup:\n        true,\n\n      symptomMessage:\n        message,\n\n      reply:\n        \"\",\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId:\n        src.sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        784
+      ],
+      "id": "72d8dfd8-3f35-46c2-b937-53a4aff66ec6",
+      "name": "Symptom Guidance"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src =\n  $json;\n\nconst user =\n  String(\n    src.question ||\n    src.normalizedMessage ||\n    src.message ||\n    src.transcript ||\n    \"\"\n  ).trim();\n\nconst prompt = `\nYou are the virtual receptionist for Medicare Medical Center in Sri Lanka.\n\nThe verified medical-center knowledge base did not contain a sufficiently confident answer to this question.\n\nRules:\n- Keep the reply under 80 words.\n- Be helpful and administrative.\n- Do not invent clinic-specific facts such as opening hours, address, phone numbers, fees, insurance providers, services, doctor schedules, policies, or appointment availability.\n- If the user asks for clinic-specific information that is not verified, say that you do not have a verified answer and suggest contacting reception.\n- Do not diagnose, prescribe, recommend a medicine, or change treatment.\n- For medical symptoms, advise speaking with a clinician; for emergency warning signs, advise urgent in-person/emergency care.\n- Do not claim an appointment is booked unless the booking workflow confirms it.\n\nUser question:\n${user}\n`.trim();\n\nreturn [\n  {\n    json: {\n      prompt,\n      question:\n        user,\n      message:\n        user,\n      normalizedMessage:\n        user,\n      originalRoute:\n        src.originalRoute ||\n        \"general\",\n      ragFallback:\n        true,\n      voiceMode:\n        src.voiceMode === true,\n      requestVoiceReply:\n        src.requestVoiceReply === true,\n      sessionId:\n        src.sessionId || \"\",\n      email:\n        src.email || \"\",\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        928
+      ],
+      "id": "97c47759-b315-48eb-945c-1ff6fbf78766",
+      "name": "Prepare General AI"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 180 } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        576,
+        928
+      ],
+      "id": "76f87b0e-fed9-47e0-af15-20292e9f0bbd",
+      "name": "Gemini General Reply"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r =\n  $json;\n\nconst src =\n  $(\n    \"Prepare General AI\"\n  )\n    .first()\n    .json;\n\nconst reply =\n  r?.candidates?.[0]\n    ?.content?.parts\n    ?.map(\n      (part) =>\n        part.text || \"\"\n    )\n    .join(\" \")\n    .trim() ||\n  \"I do not have a verified answer for that question. Please contact reception for assistance.\";\n\nreturn [\n  {\n    json: {\n      intent:\n        src.ragFallback\n          ? \"general_fallback\"\n          : \"general\",\n      reply,\n      ragUsed:\n        src.ragFallback === true,\n      ragFallback:\n        src.ragFallback === true,\n      voiceMode:\n        src.voiceMode,\n      requestVoiceReply:\n        src.requestVoiceReply,\n      sessionId:\n        src.sessionId,\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        928
+      ],
+      "id": "6e9fbf1d-a81f-47c9-9ac2-e00b58de3e33",
+      "name": "Parse General AI"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dbeeff61-6170-41c1-a6e8-55295d6312af",
+              "leftValue": "={{ $json.voiceMode }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "eb941ebe-17f1-45ad-bf3e-b83fe19560df",
+              "leftValue": "={{ $json.requestVoiceReply }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        272
+      ],
+      "id": "307119fb-5bf4-4a5a-adb8-6ac2a061b717",
+      "name": "Voice Reply?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1312,
+        384
+      ],
+      "id": "89240cc2-6c6c-4f97-a521-fe3f099a0f4d",
+      "name": "Respond Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src =\n  $json;\n\nlet reply =\n  String(\n    src.reply ||\n    src.message ||\n    \"\"\n  ).trim();\n\nif (!reply) {\n  reply =\n    \"How can I help you?\";\n}\n\n/*\n * Keep spoken replies reasonably concise.\n * Cards/calendar still remain available\n * in the JSON response.\n */\nconst ttsText =\n  reply.length > 1500\n    ? `${reply.slice(\n        0,\n        1500\n      )}.`\n    : reply;\n\nreturn [\n  {\n    json: {\n      ...src,\n\n      reply,\n\n      ttsText,\n\n      voiceMode:\n        true,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        144
+      ],
+      "id": "3bb372ee-ef80-41d1-82fd-813708971df5",
+      "name": "Prepare TTS"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/gsfHgo0em3A2WqPLbIE5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            },
+            {
+              "name": "Accept",
+              "value": "audio/mpeg"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.ttsText, model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.1, use_speaker_boost: true } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1536,
+        144
+      ],
+      "id": "2f23d276-348a-4f0b-b228-233885d5a5f9",
+      "name": "ElevenLabs TTS"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source =\n  $(\"Prepare TTS\")\n    .first()\n    .json;\n\nconst ttsItem =\n  $input.first();\n\nconst binaryKeys =\n  Object.keys(\n    ttsItem.binary ||\n    {}\n  );\n\nif (\n  binaryKeys.length === 0\n) {\n  throw new Error(\n    \"ElevenLabs TTS returned no audio file\"\n  );\n}\n\nconst binaryKey =\n  binaryKeys.includes(\n    \"data\"\n  )\n    ? \"data\"\n    : binaryKeys[0];\n\nconst buffer =\n  await this.helpers.getBinaryDataBuffer(\n    0,\n    binaryKey\n  );\n\nif (\n  buffer.length <\n  500\n) {\n  throw new Error(\n    \"TTS returned an empty or invalid audio file\"\n  );\n}\n\nlet transcript =\n  source.transcript ||\n  source.message ||\n  \"\";\n\nif (!transcript) {\n  try {\n    transcript =\n      $(\"Normalize Voice\")\n        .first()\n        .json\n        .transcript ||\n      \"\";\n  } catch {\n    transcript =\n      \"\";\n  }\n}\n\nreturn [\n  {\n    json: {\n      reply:\n        source.reply,\n\n      transcript,\n\n      intent:\n        source.intent ||\n        \"general\",\n\n      cards:\n        source.cards ||\n        source.doctors ||\n        null,\n\n      doctors:\n        source.doctors ||\n        source.cards ||\n        null,\n\n      calendar:\n        source.calendar ||\n        null,\n\n      bookingStep:\n        source.bookingStep ||\n        null,\n\n      timeSlots:\n        source.timeSlots ||\n        null,\n\n      bookingConfirmed:\n        source.bookingConfirmed ||\n        false,\n\n      rescheduleMode:\n        source.rescheduleMode ===\n        true,\n\n      selectedDate:\n        source.selectedDate ||\n        source.newAppointmentDate ||\n        \"\",\n\n      selectedTime:\n        source.selectedTime ||\n        source.newAppointmentTime ||\n        \"\",\n\n      appointmentOperation:\n        source.appointmentOperation ||\n        \"none\",\n\n      appointmentId:\n        source.appointmentId ||\n        source.appointment?.id ||\n        null,\n\n      appointmentOperation:\n        source.appointmentOperation ||\n        \"none\",\n\n      selectedDate:\n        source.selectedDate ||\n        source.appointment?.appointmentDate ||\n        \"\",\n\n      selectedTime:\n        source.selectedTime ||\n        source.appointment?.appointmentTime ||\n        \"\",\n\n      sessionId:\n        source.sessionId ||\n        \"\",\n\n      email:\n        source.email ||\n        \"\",\n\n      voiceMode:\n        true,\n\n      audioBase64:\n        buffer.toString(\n          \"base64\"\n        ),\n\n      mimeType:\n        \"audio/mpeg\",\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        144
+      ],
+      "id": "f0a9e657-2784-4464-b18e-b4f85846605e",
+      "name": "Build Voice Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1968,
+        144
+      ],
+      "id": "ae81e8a3-042d-4280-be57-96863ec47831",
+      "name": "Respond Voice"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src =\n  $json;\n\nconst state =\n  src.operationState || {};\n\nlet reply =\n  String(\n    src.operationPrompt ||\n    \"\"\n  ).trim();\n\nif (!reply) {\n  switch (\n    state.stage\n  ) {\n    case \"cancel_awaiting_id\":\n      reply =\n        \"Please tell me the appointment number you want to cancel.\";\n      break;\n\n    case \"cancel_awaiting_confirmation\":\n      reply =\n        \"Please say yes to confirm the cancellation, or no to keep the appointment.\";\n      break;\n\n    case \"reschedule_awaiting_id\":\n      reply =\n        \"Please tell me the appointment number you want to reschedule.\";\n      break;\n\n    case \"reschedule_awaiting_date\":\n      reply =\n        \"What new date would you like for the appointment?\";\n      break;\n\n    case \"reschedule_awaiting_time\":\n      reply =\n        \"What new time would you like for the appointment?\";\n      break;\n\n    default:\n      reply =\n        \"How can I help you with your appointment?\";\n  }\n}\n\nreturn [\n  {\n    json: {\n      intent:\n        state.type === \"cancel\"\n          ? \"cancel_flow\"\n          : state.type === \"reschedule\"\n            ? \"reschedule_flow\"\n            : \"appointment_operation\",\n\n      reply,\n\n      appointmentOperation:\n        \"none\",\n\n      appointmentId:\n        state.appointmentId ||\n        src.appointmentId ||\n        \"\",\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId:\n        src.sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        1120
+      ],
+      "id": "dd92426c-9161-4426-b5db-07f9326a2bdc",
+      "name": "Operation Prompt"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://localhost:5000/api/appointments/public/' + encodeURIComponent($json.appointmentId) + '?email=' + encodeURIComponent($json.email) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        1248
+      ],
+      "id": "8a016e7e-53b4-470f-8073-e3ef73e23334",
+      "name": "Lookup Appointment API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response =\n  $json || {};\n\nconst src =\n  $(\"Route + Booking State\")\n    .first()\n    .json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.appointmentActionStates\n) {\n  store.appointmentActionStates =\n    {};\n}\n\nlet state =\n  store.appointmentActionStates[\n    sessionId\n  ] ||\n  src.operationState ||\n  {};\n\nconst appointment =\n  response.appointment ||\n  null;\n\nif (!appointment) {\n  delete store\n    .appointmentActionStates[\n      sessionId\n    ];\n\n  return [\n    {\n      json: {\n        nextRoute:\n          \"respond\",\n\n        intent:\n          \"appointment_lookup_failed\",\n\n        success:\n          false,\n\n        reply:\n          response.message ||\n          \"I could not find an appointment with that appointment number and email.\",\n\n        appointmentOperation:\n          \"none\",\n\n        bookingStep:\n          \"none\",\n\n        rescheduleMode:\n          false,\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nconst doctor =\n  appointment.Doctor ||\n  appointment.doctor ||\n  {};\n\nconst doctorId =\n  appointment.doctorId ||\n  doctor.id ||\n  null;\n\nconst doctorName =\n  doctor.name ||\n  appointment.doctorName ||\n  \"the doctor\";\n\nconst date =\n  appointment.appointmentDate ||\n  \"\";\n\nconst time =\n  appointment.appointmentTime ||\n  \"\";\n\n/*\n * Preserve the looked-up appointment identity\n * inside the appointment-operation state.\n *\n * This is what lets later date/time UI clicks\n * continue the SAME reschedule conversation\n * without sending the appointment number again.\n */\nstate.appointmentId =\n  String(\n    appointment.id ||\n    state.appointmentId ||\n    \"\"\n  );\n\nstate.doctorId =\n  doctorId;\n\nstate.doctorName =\n  doctorName;\n\nstate.originalAppointmentDate =\n  date;\n\nstate.originalAppointmentTime =\n  time;\n\n/*\n * ==================================================\n * CANCEL\n * ==================================================\n */\nif (\n  state.type ===\n  \"cancel\"\n) {\n  state.stage =\n    \"cancel_awaiting_confirmation\";\n\n  store.appointmentActionStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        nextRoute:\n          \"respond\",\n\n        intent:\n          \"cancel_confirmation\",\n\n        success:\n          true,\n\n        reply:\n          `I found appointment ${appointment.id} with ${doctorName} on ${date} at ${time}. Do you want me to cancel this appointment?`,\n\n        appointment,\n\n        appointmentId:\n          appointment.id,\n\n        appointmentOperation:\n          \"none\",\n\n        bookingStep:\n          \"none\",\n\n        rescheduleMode:\n          false,\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * ==================================================\n * RESCHEDULE\n * ==================================================\n */\nif (\n  state.type ===\n  \"reschedule\"\n) {\n  /*\n   * If both new values were already supplied in\n   * the first sentence, execute immediately.\n   */\n  if (\n    state.newAppointmentDate &&\n    state.newAppointmentTime\n  ) {\n    state.stage =\n      \"reschedule_executing\";\n\n    store.appointmentActionStates[\n      sessionId\n    ] = state;\n\n    return [\n      {\n        json: {\n          ...src,\n\n          nextRoute:\n            \"reschedule_execute\",\n\n          intent:\n            \"reschedule_execute\",\n\n          appointmentId:\n            appointment.id,\n\n          newAppointmentDate:\n            state.newAppointmentDate,\n\n          newAppointmentTime:\n            state.newAppointmentTime,\n\n          appointment,\n\n          operationState:\n            state,\n\n          bookingStep:\n            \"none\",\n\n          rescheduleMode:\n            true,\n        },\n      },\n    ];\n  }\n\n  /*\n   * If a new date was already supplied but no time\n   * was supplied, query real time-slot availability.\n   */\n  if (\n    state.newAppointmentDate\n  ) {\n    state.stage =\n      \"reschedule_loading_slots\";\n\n    store.appointmentActionStates[\n      sessionId\n    ] = state;\n\n    return [\n      {\n        json: {\n          ...src,\n\n          nextRoute:\n            \"reschedule_slots\",\n\n          intent:\n            \"reschedule_slots_lookup\",\n\n          appointment,\n\n          appointmentId:\n            appointment.id,\n\n          doctorId,\n\n          doctorName,\n\n          newAppointmentDate:\n            state.newAppointmentDate,\n\n          operationState:\n            state,\n\n          bookingStep:\n            \"none\",\n\n          rescheduleMode:\n            true,\n        },\n      },\n    ];\n  }\n\n  /*\n   * No new date yet:\n   * show the existing calendar UI.\n   */\n  state.stage =\n    \"reschedule_awaiting_date\";\n\n  store.appointmentActionStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        nextRoute:\n          \"respond\",\n\n        intent:\n          \"reschedule_date_required\",\n\n        success:\n          true,\n\n        reply:\n          `I found appointment ${appointment.id} with ${doctorName} on ${date} at ${time}. Please choose a new appointment date.`,\n\n        appointment,\n\n        appointmentId:\n          appointment.id,\n\n        doctorId,\n\n        doctorName,\n\n        appointmentOperation:\n          \"none\",\n\n        bookingStep:\n          \"date\",\n\n        rescheduleMode:\n          true,\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * ==================================================\n * LOOKUP ONLY\n * ==================================================\n */\ndelete store\n  .appointmentActionStates[\n    sessionId\n  ];\n\nreturn [\n  {\n    json: {\n      nextRoute:\n        \"respond\",\n\n      intent:\n        \"appointment_lookup\",\n\n      success:\n        true,\n\n      reply:\n        `I found appointment ${appointment.id} with ${doctorName} on ${date} at ${time}.`,\n\n      appointment,\n\n      appointmentId:\n        appointment.id,\n\n      appointmentOperation:\n        \"none\",\n\n      bookingStep:\n        \"none\",\n\n      rescheduleMode:\n        false,\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        1248
+      ],
+      "id": "b7604bb3-5581-4a63-ade5-2c4ede418f40",
+      "name": "Format Appointment Lookup"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6c036ab5-1390-4af7-9bb0-b4dc7de93247",
+                    "leftValue": "={{ $json.nextRoute }}",
+                    "rightValue": "reschedule_execute",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reschedule_execute"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "80a04c29-954a-481e-85d0-646859690a76",
+                    "leftValue": "={{ $json.nextRoute }}",
+                    "rightValue": "respond",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "respond"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f1cfcf93-7b73-4e25-ad9b-804bf2cad464",
+                    "leftValue": "={{ $json.nextRoute }}",
+                    "rightValue": "reschedule_slots",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reschedule_slots"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        1200
+      ],
+      "id": "5a08e448-16bf-4164-b5e2-d470bbe7a24c",
+      "name": "Appointment Lookup Next"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5000/api/appointments/public/' + encodeURIComponent($json.appointmentId) + '/cancel' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.email, reason: $json.cancellationReason || 'Cancelled by patient through virtual assistant' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        1376
+      ],
+      "id": "d9a0f31e-c83b-43ad-99b9-87886426e5bd",
+      "name": "Cancel Appointment API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response =\n  $json || {};\n\nconst src =\n  $(\"Route + Booking State\")\n    .first()\n    .json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  store.appointmentActionStates\n) {\n  delete store\n    .appointmentActionStates[\n      sessionId\n    ];\n}\n\nconst succeeded =\n  response.cancelled === true ||\n  response.alreadyCancelled === true;\n\nconst appointment =\n  response.appointment ||\n  null;\n\nlet reply =\n  response.message ||\n  (\n    succeeded\n      ? \"Appointment cancelled successfully.\"\n      : \"I could not cancel that appointment.\"\n  );\n\nif (\n  succeeded &&\n  appointment?.id\n) {\n  reply =\n    `${reply} Appointment number ${appointment.id}.`;\n}\n\nreturn [\n  {\n    json: {\n      intent:\n        succeeded\n          ? \"appointment_cancelled\"\n          : \"appointment_cancel_failed\",\n\n      success:\n        succeeded,\n\n      reply,\n\n      appointment,\n\n      appointmentId:\n        appointment?.id ||\n        src.appointmentId ||\n        null,\n\n      appointmentOperation:\n        succeeded\n          ? \"cancelled\"\n          : \"none\",\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        1376
+      ],
+      "id": "fdebc748-6766-4126-9b78-e47014a088e3",
+      "name": "Format Cancel Result"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5000/api/appointments/public/' + encodeURIComponent($json.appointmentId) + '/reschedule' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.email, appointmentDate: $json.newAppointmentDate, appointmentTime: $json.newAppointmentTime }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        1248
+      ],
+      "id": "a5e33ab9-2e19-4b09-9e15-59e571e793d0",
+      "name": "Reschedule Appointment API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response =\n  $json || {};\n\nconst src =\n  $(\"Route + Booking State\")\n    .first()\n    .json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.appointmentActionStates\n) {\n  store.appointmentActionStates =\n    {};\n}\n\nlet state =\n  store.appointmentActionStates[\n    sessionId\n  ] ||\n  src.operationState ||\n  {};\n\nconst succeeded =\n  response.rescheduled === true;\n\nconst appointment =\n  response.appointment ||\n  null;\n\nif (\n  succeeded\n) {\n  delete store\n    .appointmentActionStates[\n      sessionId\n    ];\n\n  return [\n    {\n      json: {\n        intent:\n          \"appointment_rescheduled\",\n\n        success:\n          true,\n\n        reply:\n          `Appointment ${appointment?.id || src.appointmentId} was rescheduled successfully to ${appointment?.appointmentDate || src.newAppointmentDate} at ${appointment?.appointmentTime || src.newAppointmentTime}.`,\n\n        appointment,\n\n        appointmentId:\n          appointment?.id ||\n          src.appointmentId ||\n          null,\n\n        selectedDate:\n          appointment?.appointmentDate ||\n          src.newAppointmentDate ||\n          \"\",\n\n        selectedTime:\n          appointment?.appointmentTime ||\n          src.newAppointmentTime ||\n          \"\",\n\n        appointmentOperation:\n          \"rescheduled\",\n\n        bookingStep:\n          \"none\",\n\n        rescheduleMode:\n          false,\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * A conflict should keep the reschedule flow alive,\n * allowing the user to provide another time without\n * starting again.\n */\nif (\n  response.conflict === true ||\n  /already booked|choose another time/i.test(\n    String(\n      response.message ||\n      \"\"\n    )\n  )\n) {\n  state.stage =\n    \"reschedule_awaiting_time\";\n\n  state.newAppointmentTime =\n    \"\";\n\n  store.appointmentActionStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        intent:\n          \"reschedule_conflict\",\n\n        success:\n          false,\n\n        reply:\n          `${response.message || \"That time is already booked.\"} Please choose another time.`,\n\n        appointmentId:\n          src.appointmentId ||\n          state.appointmentId ||\n          null,\n\n        appointmentOperation:\n          \"none\",\n\n        bookingStep:\n          \"time\",\n\n        rescheduleMode:\n          true,\n\n        timeSlots:\n          Array.isArray(\n            state.availableSlots\n          )\n            ? state.availableSlots\n            : [],\n\n        selectedDate:\n          state.newAppointmentDate ||\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * For other validation errors, keep the flow at\n * time selection as well so the user can correct it.\n */\nstate.stage =\n  state.newAppointmentDate\n    ? \"reschedule_awaiting_time\"\n    : \"reschedule_awaiting_date\";\n\nstate.newAppointmentTime =\n  \"\";\n\nstore.appointmentActionStates[\n  sessionId\n] = state;\n\nreturn [\n  {\n    json: {\n      intent:\n        \"appointment_reschedule_failed\",\n\n      success:\n        false,\n\n      reply:\n        response.message ||\n        \"I could not reschedule that appointment. Please provide another date or time.\",\n\n      appointmentId:\n        src.appointmentId ||\n        state.appointmentId ||\n        null,\n\n      appointmentOperation:\n        \"none\",\n\n      bookingStep:\n        state.newAppointmentDate\n          ? \"time\"\n          : \"date\",\n\n      rescheduleMode:\n        true,\n\n      timeSlots:\n        Array.isArray(\n          state.availableSlots\n        )\n          ? state.availableSlots\n          : [],\n\n      selectedDate:\n        state.newAppointmentDate ||\n        \"\",\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        1248
+      ],
+      "id": "9c7ee5fb-f6c8-40d2-9a00-643670058a18",
+      "name": "Format Reschedule Result"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://localhost:5000/api/appointments/public/availability?doctorId=' + encodeURIComponent($json.operationState.doctorId) + '&date=' + encodeURIComponent($json.operationState.newAppointmentDate) + '&excludeAppointmentId=' + encodeURIComponent($json.operationState.appointmentId) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        704
+      ],
+      "id": "f5197931-9d3b-46bd-af7b-d18b96434163",
+      "name": "Get Reschedule Slots"
+    },
+    {
+      "parameters": {
+        "jsCode": "const row =\n  $json || {};\n\nconst src =\n  $(\"Route + Booking State\")\n    .first()\n    .json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.appointmentActionStates\n) {\n  store.appointmentActionStates =\n    {};\n}\n\nlet state =\n  store.appointmentActionStates[\n    sessionId\n  ] ||\n  src.operationState ||\n  {};\n\nconst selectedDate =\n  state.newAppointmentDate ||\n  src.newAppointmentDate ||\n  \"\";\n\nconst doctorName =\n  state.doctorName ||\n  row.name ||\n  \"the doctor\";\n\nlet weeklySchedule =\n  row.availableTimes ||\n  {};\n\nif (\n  typeof weeklySchedule ===\n  \"string\"\n) {\n  try {\n    weeklySchedule =\n      JSON.parse(\n        weeklySchedule\n      );\n  } catch {\n    weeklySchedule =\n      {};\n  }\n}\n\nlet bookedTimes =\n  row.bookedTimes ||\n  [];\n\nif (\n  typeof bookedTimes ===\n  \"string\"\n) {\n  try {\n    bookedTimes =\n      JSON.parse(\n        bookedTimes\n      );\n  } catch {\n    bookedTimes =\n      [];\n  }\n}\n\nif (\n  !Array.isArray(\n    bookedTimes\n  )\n) {\n  bookedTimes =\n    [];\n}\n\nfunction getDayName(\n  dateString\n) {\n  if (!dateString) {\n    return \"\";\n  }\n\n  const d =\n    new Date(\n      `${dateString}T12:00:00`\n    );\n\n  return [\n    \"sunday\",\n    \"monday\",\n    \"tuesday\",\n    \"wednesday\",\n    \"thursday\",\n    \"friday\",\n    \"saturday\",\n  ][d.getDay()];\n}\n\nfunction slotStartToDbTime(\n  label\n) {\n  const start =\n    String(\n      label || \"\"\n    )\n      .split(\" - \")[0]\n      .trim();\n\n  const match =\n    start.match(\n      /^(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)$/i\n    );\n\n  if (!match) {\n    const dbMatch =\n      start.match(\n        /^(\\d{1,2}):(\\d{2})(?::(\\d{2}))?$/\n      );\n\n    if (!dbMatch) {\n      return \"\";\n    }\n\n    return `${String(\n      Number(\n        dbMatch[1]\n      )\n    ).padStart(\n      2,\n      \"0\"\n    )}:${dbMatch[2]}:${dbMatch[3] || \"00\"}`;\n  }\n\n  let hour =\n    Number(\n      match[1]\n    );\n\n  const minutes =\n    match[2] ||\n    \"00\";\n\n  const meridiem =\n    match[3]\n      .toLowerCase();\n\n  if (\n    meridiem === \"pm\" &&\n    hour !== 12\n  ) {\n    hour += 12;\n  }\n\n  if (\n    meridiem === \"am\" &&\n    hour === 12\n  ) {\n    hour = 0;\n  }\n\n  return `${String(\n    hour\n  ).padStart(\n    2,\n    \"0\"\n  )}:${minutes}:00`;\n}\n\nconst dayKey =\n  getDayName(\n    selectedDate\n  );\n\nconst rawSlots =\n  Array.isArray(\n    weeklySchedule[\n      dayKey\n    ]\n  )\n    ? weeklySchedule[\n        dayKey\n      ]\n    : [];\n\nconst bookedSet =\n  new Set(\n    bookedTimes.map(\n      (value) =>\n        String(\n          value || \"\"\n        )\n          .slice(\n            0,\n            8\n          )\n    )\n  );\n\nconst timeSlots =\n  rawSlots.map(\n    (label) => {\n      const dbTime =\n        slotStartToDbTime(\n          label\n        );\n\n      return {\n        label:\n          String(\n            label\n          ),\n\n        booked:\n          dbTime\n            ? bookedSet.has(\n                dbTime\n              )\n            : false,\n      };\n    }\n  );\n\nstate.availableSlots =\n  timeSlots;\n\nif (\n  rawSlots.length ===\n  0\n) {\n  state.stage =\n    \"reschedule_awaiting_date\";\n\n  state.newAppointmentDate =\n    \"\";\n\n  state.newAppointmentTime =\n    \"\";\n\n  store.appointmentActionStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        intent:\n          \"reschedule_no_slots\",\n\n        success:\n          false,\n\n        reply:\n          `${doctorName} has no configured appointment times on ${selectedDate}. Please choose another date.`,\n\n        appointmentId:\n          state.appointmentId ||\n          src.appointmentId ||\n          null,\n\n        appointmentOperation:\n          \"none\",\n\n        bookingStep:\n          \"date\",\n\n        rescheduleMode:\n          true,\n\n        timeSlots:\n          [],\n\n        selectedDate:\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nconst freeCount =\n  timeSlots.filter(\n    (slot) =>\n      !slot.booked\n  ).length;\n\nif (\n  freeCount ===\n  0\n) {\n  state.stage =\n    \"reschedule_awaiting_date\";\n\n  state.newAppointmentDate =\n    \"\";\n\n  state.newAppointmentTime =\n    \"\";\n\n  store.appointmentActionStates[\n    sessionId\n  ] = state;\n\n  return [\n    {\n      json: {\n        intent:\n          \"reschedule_date_fully_booked\",\n\n        success:\n          false,\n\n        reply:\n          `All configured appointment times for ${doctorName} on ${selectedDate} are already booked. Please choose another date.`,\n\n        appointmentId:\n          state.appointmentId ||\n          src.appointmentId ||\n          null,\n\n        appointmentOperation:\n          \"none\",\n\n        bookingStep:\n          \"date\",\n\n        rescheduleMode:\n          true,\n\n        timeSlots,\n\n        selectedDate:\n          \"\",\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nstate.stage =\n  \"reschedule_awaiting_time\";\n\nstate.newAppointmentTime =\n  \"\";\n\nstore.appointmentActionStates[\n  sessionId\n] = state;\n\nreturn [\n  {\n    json: {\n      intent:\n        \"reschedule_time_required\",\n\n      success:\n        true,\n\n      reply:\n        `Please choose an available time for ${doctorName} on ${selectedDate}.`,\n\n      appointmentId:\n        state.appointmentId ||\n        src.appointmentId ||\n        null,\n\n      appointmentOperation:\n        \"none\",\n\n      bookingStep:\n        \"time\",\n\n      rescheduleMode:\n        true,\n\n      timeSlots,\n\n      selectedDate,\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        1120
+      ],
+      "id": "aa8555f5-821d-474d-a962-b15ec8e276ba",
+      "name": "Format Reschedule Slots"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://localhost:5000/api/appointments/public/availability?doctorId=' + encodeURIComponent($json.selectedDoctor.doctorId || $json.selectedDoctor.id) + '&date=' + encodeURIComponent($json.selectedDate) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        336
+      ],
+      "id": "3a0cf468-50a4-4a2e-ae09-9366ab0ea8ea",
+      "name": "Get Booking Availability",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5000/api/appointments/public/' + encodeURIComponent($json.id) + '/sync-created' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Prepare Booking').first().json.email }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        816,
+        464
+      ],
+      "id": "9ac50d2d-61be-44f5-a59e-a26d84033df9",
+      "name": "Sync Created Appointment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "308e3573-dab5-4436-8df4-39f32aa64151",
+              "leftValue": "={{ $json.needsDoctorLookup }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        576,
+        784
+      ],
+      "id": "7aa89611-af76-4534-9911-64f1cc3ef525",
+      "name": "Needs Symptom Doctor Lookup?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, specialization, designation, \"profileImageUrl\", \"yearsOfExperience\", \"availableTimes\" FROM public.doctors ORDER BY name ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        816,
+        720
+      ],
+      "id": "9dda2e06-f5f0-4c75-9d2b-df1bb52a19c8",
+      "name": "Get Symptom Doctors",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "tL1pFfhumacrYGj8",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows =\n  $input\n    .all()\n    .map(\n      (\n        item\n      ) =>\n        item.json\n    );\n\nconst src =\n  $(\n    \"Symptom Guidance\"\n  )\n    .first()\n    .json;\n\nconst sessionId =\n  src.sessionId ||\n  \"default\";\n\nconst requestedSpecialty =\n  String(\n    src.recommendedSpecialty ||\n    \"General Practitioner (GP)\"\n  );\n\nconst normalizeDoctor =\n  (\n    row\n  ) => {\n    let weeklySchedule =\n      row.availableTimes ||\n      {};\n\n    if (\n      typeof weeklySchedule ===\n      \"string\"\n    ) {\n      try {\n        weeklySchedule =\n          JSON.parse(\n            weeklySchedule\n          );\n      } catch {\n        weeklySchedule =\n          {};\n      }\n    }\n\n    return {\n      id:\n        row.id,\n\n      doctorId:\n        row.id,\n\n      doctorName:\n        row.name,\n\n      name:\n        row.name,\n\n      specialization:\n        row.specialization ||\n        \"\",\n\n      designation:\n        row.designation ||\n        \"\",\n\n      profileImageUrl:\n        row.profileImageUrl ||\n        \"\",\n\n      yearsOfExperience:\n        row.yearsOfExperience ||\n        \"\",\n\n      weeklySchedule,\n    };\n  };\n\nconst doctors =\n  rows\n    .filter(\n      (\n        row\n      ) =>\n        row &&\n        (\n          row.id ||\n          row.name\n        )\n    )\n    .map(\n      normalizeDoctor\n    );\n\nfunction specialtyMatches(\n  doctorSpecialty,\n  target\n) {\n  const d =\n    String(\n      doctorSpecialty ||\n      \"\"\n    )\n      .toLowerCase();\n\n  const t =\n    String(\n      target ||\n      \"\"\n    )\n      .toLowerCase();\n\n  if (\n    t.includes(\n      \"general practitioner\"\n    ) ||\n    t === \"gp\" ||\n    t.includes(\n      \"general practice\"\n    )\n  ) {\n    return (\n      d.includes(\n        \"general practitioner\"\n      ) ||\n      d.includes(\n        \"general practice\"\n      ) ||\n      /\\bgp\\b/.test(\n        d\n      )\n    );\n  }\n\n  if (\n    t.includes(\n      \"neurolog\"\n    )\n  ) {\n    return d.includes(\n      \"neurolog\"\n    );\n  }\n\n  if (\n    t.includes(\n      \"cardiolog\"\n    )\n  ) {\n    return d.includes(\n      \"cardiolog\"\n    );\n  }\n\n  if (\n    t.includes(\n      \"pediatric\"\n    ) ||\n    t.includes(\n      \"paediatric\"\n    )\n  ) {\n    return (\n      d.includes(\n        \"pediatric\"\n      ) ||\n      d.includes(\n        \"paediatric\"\n      )\n    );\n  }\n\n  return (\n    d === t ||\n    d.includes(\n      t\n    ) ||\n    t.includes(\n      d\n    )\n  );\n}\n\nlet matchingDoctors =\n  doctors.filter(\n    (\n      doctor\n    ) =>\n      specialtyMatches(\n        doctor.specialization,\n        requestedSpecialty\n      )\n  );\n\nlet resolvedSpecialty =\n  requestedSpecialty;\n\nlet usedFallback =\n  false;\n\n/*\n * If the preferred specialty has no configured doctor,\n * a GP is a reasonable first-contact fallback for\n * non-emergency symptoms.\n */\nif (\n  matchingDoctors.length ===\n    0 &&\n  !requestedSpecialty\n    .toLowerCase()\n    .includes(\n      \"general practitioner\"\n    )\n) {\n  matchingDoctors =\n    doctors.filter(\n      (\n        doctor\n      ) =>\n        specialtyMatches(\n          doctor.specialization,\n          \"General Practitioner (GP)\"\n        )\n    );\n\n  if (\n    matchingDoctors.length >\n    0\n  ) {\n    resolvedSpecialty =\n      \"General Practitioner (GP)\";\n\n    usedFallback =\n      true;\n  }\n}\n\nconst recommendedDoctor =\n  matchingDoctors[0] ||\n  null;\n\nconst store =\n  $getWorkflowStaticData(\n    \"global\"\n  );\n\nif (\n  !store.bookingStates\n) {\n  store.bookingStates =\n    {};\n}\n\nconst previousState =\n  store.bookingStates[\n    sessionId\n  ] || {\n    stage:\n      \"idle\",\n  };\n\nif (\n  !recommendedDoctor\n) {\n  store.bookingStates[\n    sessionId\n  ] = {\n    ...previousState,\n\n    stage:\n      \"idle\",\n\n    selectedDoctor:\n      null,\n\n    symptomContext: {\n      message:\n        src.symptomMessage ||\n        \"\",\n\n      urgency:\n        src.urgency ||\n        \"routine\",\n\n      recommendedSpecialty:\n        requestedSpecialty,\n    },\n  };\n\n  return [\n    {\n      json: {\n        intent:\n          \"symptom_no_matching_doctor\",\n\n        urgency:\n          src.urgency ||\n          \"routine\",\n\n        recommendedSpecialty:\n          requestedSpecialty,\n\n        reply:\n          `${src.guidancePrefix || \"A clinician should assess these symptoms.\"} I could not find a currently configured ${requestedSpecialty} doctor in the medical-center doctor list. Please contact reception for the most suitable available clinician. If symptoms become severe, sudden, or rapidly worsen, seek urgent in-person care.`,\n\n        doctors:\n          [],\n\n        cards:\n          [],\n\n        bookingStep:\n          \"none\",\n\n        selectedDoctor:\n          null,\n\n        voiceMode:\n          src.voiceMode,\n\n        requestVoiceReply:\n          src.requestVoiceReply,\n\n        sessionId,\n\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\nconst state = {\n  ...previousState,\n\n  stage:\n    \"awaiting_symptom_booking_confirmation\",\n\n  currentDoctors:\n    matchingDoctors,\n\n  selectedDoctor:\n    recommendedDoctor,\n\n  selectedDate:\n    \"\",\n\n  displayDate:\n    \"\",\n\n  dayName:\n    \"\",\n\n  selectedTime:\n    \"\",\n\n  availableSlots:\n    [],\n\n  availabilitySummaryRequested:\n    false,\n\n  symptomContext: {\n    message:\n      src.symptomMessage ||\n      \"\",\n\n    urgency:\n      src.urgency ||\n      \"routine\",\n\n    recommendedSpecialty:\n      requestedSpecialty,\n\n    resolvedSpecialty,\n  },\n\n  lastUpdated:\n    new Date()\n      .toISOString(),\n};\n\nstore.bookingStates[\n  sessionId\n] = state;\n\nconst doctorName =\n  recommendedDoctor.doctorName ||\n  recommendedDoctor.name ||\n  \"the doctor\";\n\nconst otherNames =\n  matchingDoctors\n    .slice(\n      1,\n      4\n    )\n    .map(\n      (\n        doctor\n      ) =>\n        doctor.doctorName ||\n        doctor.name\n    )\n    .filter(\n      Boolean\n    );\n\nlet availabilitySentence =\n  `At our medical center, ${doctorName} is listed under ${resolvedSpecialty}.`;\n\nif (\n  otherNames.length >\n  0\n) {\n  availabilitySentence =\n    `At our medical center, ${doctorName} is one available ${resolvedSpecialty} option. Other doctors listed for this specialty include ${otherNames.join(\n      \", \"\n    )}.`;\n}\n\nconst fallbackSentence =\n  usedFallback\n    ? ` We do not currently have a configured ${requestedSpecialty} doctor in the workflow, so a General Practitioner is being offered as the first clinical contact.`\n    : \"\";\n\nconst urgentReminder =\n  src.urgency ===\n    \"urgent\"\n    ? \" If the symptoms become sudden, much worse, or include emergency warning signs such as fainting, confusion, one-sided weakness, severe breathing difficulty, or a sudden worst-ever headache, seek emergency care instead of waiting for a routine appointment.\"\n    : \"\";\n\nconst reply =\n  `${src.guidancePrefix || \"A clinician should assess these symptoms.\"}${fallbackSentence} ${availabilitySentence}${urgentReminder} Would you like to book an appointment with ${doctorName}?`;\n\nreturn [\n  {\n    json: {\n      intent:\n        \"symptom_doctor_recommendation\",\n\n      urgency:\n        src.urgency ||\n        \"routine\",\n\n      recommendedSpecialty:\n        resolvedSpecialty,\n\n      requestedSpecialty,\n\n      reply,\n\n      bookingPrompt:\n        true,\n\n      bookingStep:\n        \"none\",\n\n      selectedDoctor:\n        recommendedDoctor,\n\n      recommendedDoctor,\n\n      doctors:\n        matchingDoctors,\n\n      cards:\n        matchingDoctors,\n\n      voiceMode:\n        src.voiceMode,\n\n      requestVoiceReply:\n        src.requestVoiceReply,\n\n      sessionId,\n\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        720
+      ],
+      "id": "265210dd-eb7b-43c9-9b57-6cb7a74a9f90",
+      "name": "Format Symptom Doctor Recommendation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/ask",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-chat-auth",
+              "value": "={{ $env.CHAT_API_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $json.question }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        576,
+        640
+      ],
+      "id": "9d4d8d12-1e71-4e56-aa43-0cc710d23999",
+      "name": "RAG Knowledge Search",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const response =\n  $json || {};\n\nconst src =\n  $(\n    \"Prepare RAG Query\"\n  )\n    .first()\n    .json;\n\nconst question =\n  String(\n    src.question ||\n    \"\"\n  ).trim();\n\nconst answer =\n  String(\n    response.answer ||\n    \"\"\n  ).trim();\n\nconst reason =\n  String(\n    response.reason ||\n    \"\"\n  ).trim();\n\nconst confidence =\n  String(\n    response.confidence ||\n    \"\"\n  ).trim();\n\nconst matchedTitle =\n  String(\n    response.matched_title ||\n    \"\"\n  ).trim();\n\nconst score =\n  Number.isFinite(\n    Number(\n      response.score\n    )\n  )\n    ? Number(\n        response.score\n      )\n    : null;\n\nconst protectedReasons =\n  new Set([\n    \"emergency_case\",\n    \"medical_advice_request\",\n    \"user_requested_human\",\n  ]);\n\nconst lowConfidenceReasons =\n  new Set([\n    \"no_match_found\",\n    \"low_confidence_match\",\n  ]);\n\n/*\n * Safety/handover outcomes from the RAG API are never\n * sent to Gemini. Use the safe RAG response directly.\n */\nif (\n  protectedReasons.has(\n    reason\n  ) &&\n  answer\n) {\n  return [\n    {\n      json: {\n        nextRoute:\n          \"respond\",\n        intent:\n          reason ===\n          \"emergency_case\"\n            ? \"rag_safety_emergency\"\n            : reason ===\n              \"medical_advice_request\"\n              ? \"rag_safety_medical_advice\"\n              : \"rag_human_request\",\n        reply:\n          answer,\n        ragUsed:\n          true,\n        ragFallback:\n          false,\n        ragReason:\n          reason,\n        ragConfidence:\n          confidence ||\n          \"high\",\n        ragMatchedTitle:\n          matchedTitle ||\n          null,\n        ragScore:\n          score,\n        voiceMode:\n          src.voiceMode,\n        requestVoiceReply:\n          src.requestVoiceReply,\n        sessionId:\n          src.sessionId,\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * A confident knowledge-base answer is returned directly.\n * This prevents Gemini from rewriting verified clinic facts.\n */\nif (\n  response.handover_needed !==\n    true &&\n  answer &&\n  (\n    confidence ===\n      \"high\" ||\n    confidence ===\n      \"medium\" ||\n    (\n      score !== null &&\n      score >= 0.45\n    )\n  )\n) {\n  return [\n    {\n      json: {\n        nextRoute:\n          \"respond\",\n        intent:\n          src.originalRoute ===\n          \"faq\"\n            ? \"rag_faq\"\n            : \"rag_general\",\n        reply:\n          answer,\n        ragUsed:\n          true,\n        ragFallback:\n          false,\n        ragReason:\n          null,\n        ragConfidence:\n          confidence ||\n          \"medium\",\n        ragMatchedTitle:\n          matchedTitle ||\n          null,\n        ragScore:\n          score,\n        voiceMode:\n          src.voiceMode,\n        requestVoiceReply:\n          src.requestVoiceReply,\n        sessionId:\n          src.sessionId,\n        email:\n          src.email,\n      },\n    },\n  ];\n}\n\n/*\n * Low-confidence/no-match/temporary failures fall back to\n * the restricted Gemini receptionist. Gemini is told not\n * to invent medical-center facts.\n */\nconst fallbackReason =\n  lowConfidenceReasons.has(\n    reason\n  )\n    ? reason\n    : (\n        response.detail ||\n        response.error ||\n        reason ||\n        \"rag_unavailable_or_unverified\"\n      );\n\nreturn [\n  {\n    json: {\n      nextRoute:\n        \"fallback_ai\",\n      intent:\n        \"rag_fallback\",\n      question,\n      message:\n        question,\n      normalizedMessage:\n        question,\n      originalRoute:\n        src.originalRoute ||\n        \"general\",\n      ragUsed:\n        true,\n      ragFallback:\n        true,\n      ragReason:\n        String(\n          fallbackReason\n        ),\n      ragConfidence:\n        confidence ||\n        \"low\",\n      ragMatchedTitle:\n        matchedTitle ||\n        null,\n      ragScore:\n        score,\n      voiceMode:\n        src.voiceMode,\n      requestVoiceReply:\n        src.requestVoiceReply,\n      sessionId:\n        src.sessionId,\n      email:\n        src.email,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        640
+      ],
+      "id": "9aea7f2c-9b34-4266-868c-26d123862dbf",
+      "name": "Parse RAG Result"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e20a829a-ae54-4dc2-bd03-6707a3b353fa",
+                    "leftValue": "={{ $json.nextRoute }}",
+                    "rightValue": "respond",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "respond"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9c32bdba-b625-4519-9236-7e7be2d6e44f",
+                    "leftValue": "={{ $json.nextRoute }}",
+                    "rightValue": "fallback_ai",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fallback_ai"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1056,
+        640
+      ],
+      "id": "a8a5a7c6-5519-4fad-a6f7-5105d6ffea07",
+      "name": "RAG Result Route"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Website Webhook": {
+      "main": [
+        [
+          {
+            "node": "Detect Input Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Input Type": {
+      "main": [
+        [
+          {
+            "node": "Decode Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Input Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode Audio": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs STT": {
+      "main": [
+        [
+          {
+            "node": "Normalize Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Voice": {
+      "main": [
+        [
+          {
+            "node": "Route + Booking State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Text": {
+      "main": [
+        [
+          {
+            "node": "Route + Booking State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Error": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route + Booking State": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Get Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Booking Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Booking Availability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Symptom Guidance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Appointment API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Operation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancel Appointment API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reschedule Appointment API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Reschedule Slots",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Doctors": {
+      "main": [
+        [
+          {
+            "node": "Format Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Doctors": {
+      "main": [
+        [
+          {
+            "node": "Format Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Calendar": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Time Slots": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Booking": {
+      "main": [
+        [
+          {
+            "node": "Book Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book Appointment": {
+      "main": [
+        [
+          {
+            "node": "Sync Created Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Booking Result": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Doctors": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Symptom Guidance": {
+      "main": [
+        [
+          {
+            "node": "Needs Symptom Doctor Lookup?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare General AI": {
+      "main": [
+        [
+          {
+            "node": "Gemini General Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini General Reply": {
+      "main": [
+        [
+          {
+            "node": "Parse General AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse General AI": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Reply?": {
+      "main": [
+        [
+          {
+            "node": "Prepare TTS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare TTS": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs TTS": {
+      "main": [
+        [
+          {
+            "node": "Build Voice Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Voice Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Operation Prompt": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Appointment API": {
+      "main": [
+        [
+          {
+            "node": "Format Appointment Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Appointment Lookup": {
+      "main": [
+        [
+          {
+            "node": "Appointment Lookup Next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appointment Lookup Next": {
+      "main": [
+        [
+          {
+            "node": "Reschedule Appointment API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Reschedule Slots",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Appointment API": {
+      "main": [
+        [
+          {
+            "node": "Format Cancel Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Cancel Result": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reschedule Appointment API": {
+      "main": [
+        [
+          {
+            "node": "Format Reschedule Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Reschedule Result": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reschedule Slots": {
+      "main": [
+        [
+          {
+            "node": "Format Reschedule Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Reschedule Slots": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Availability": {
+      "main": [
+        [
+          {
+            "node": "Get Time Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Created Appointment": {
+      "main": [
+        [
+          {
+            "node": "Format Booking Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Symptom Doctor Lookup?": {
+      "main": [
+        [
+          {
+            "node": "Get Symptom Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Symptom Doctors": {
+      "main": [
+        [
+          {
+            "node": "Format Symptom Doctor Recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Symptom Doctor Recommendation": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare RAG Query": {
+      "main": [
+        [
+          {
+            "node": "RAG Knowledge Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG Knowledge Search": {
+      "main": [
+        [
+          {
+            "node": "Parse RAG Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse RAG Result": {
+      "main": [
+        [
+          {
+            "node": "RAG Result Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG Result Route": {
+      "main": [
+        [
+          {
+            "node": "Voice Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare General AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare General AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1f524528-4399-4378-a6b1-cb442f8fe275",
+  "meta": {
+    "instanceId": "a17f4d4d340af8743d79321d7cf9d61e6d327539725a755259d2bc575a6d5bd2"
+  },
+  "id": "medicare-symptom-qdrant-rag-import",
+  "tags": []
+}

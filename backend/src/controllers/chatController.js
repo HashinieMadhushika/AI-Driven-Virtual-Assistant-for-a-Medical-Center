@@ -8,7 +8,7 @@ import sendEmail from '../utils/sendEmail.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// A chat counts as "Active" while its last message is newer than this; after that it is "Completed"
+// A chat counts as "Active" while its last message is newer than this; after that it is "Completed".
 const ACTIVE_WINDOW_MINUTES = 30;
 
 // Message roles written by the patient or the AI agent. Any other role (e.g. 'human', 'agent')
@@ -27,6 +27,7 @@ const hashAccessCode = (email, code) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is not configured');
   }
+
   return createHmac('sha256', process.env.JWT_SECRET)
     .update(`${email}:${code}`)
     .digest('hex');
@@ -38,9 +39,13 @@ const invalidVerification = (res) =>
 export const requestChatHistoryCode = async (req, res) => {
   try {
     const { firstName, email } = req.body ?? {};
+
     if (
-      typeof firstName !== 'string' || !firstName.trim() || firstName.trim().length > 120 ||
-      typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      typeof firstName !== 'string' ||
+      !firstName.trim() ||
+      firstName.trim().length > 120 ||
+      typeof email !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
     ) {
       return res.status(400).json({ error: 'Enter a valid name and email address.' });
     }
@@ -48,9 +53,11 @@ export const requestChatHistoryCode = async (req, res) => {
     const identity = normalizeIdentity({ firstName, email });
     const now = new Date();
     const existingCode = await ChatAccessCode.findOne({ where: { email: identity.email } });
+
     if (
       existingCode &&
-      now.getTime() - new Date(existingCode.requestedAt).getTime() < CHAT_CODE_RESEND_SECONDS * 1000
+      now.getTime() - new Date(existingCode.requestedAt).getTime() <
+        CHAT_CODE_RESEND_SECONDS * 1000
     ) {
       return res.status(429).json({ error: 'Please wait before requesting another code.' });
     }
@@ -80,7 +87,9 @@ export const requestChatHistoryCode = async (req, res) => {
     } catch (error) {
       await ChatAccessCode.destroy({ where: { email: identity.email } });
       console.error('Failed to send chat history verification code:', error);
-      return res.status(503).json({ error: 'We could not send a verification code. Please try again later.' });
+      return res
+        .status(503)
+        .json({ error: 'We could not send a verification code. Please try again later.' });
     }
 
     return res.status(202).json({ message: 'Check your email for a verification code.' });
@@ -93,32 +102,43 @@ export const requestChatHistoryCode = async (req, res) => {
 export const verifyChatHistoryCode = async (req, res) => {
   try {
     const { firstName, email, code } = req.body ?? {};
+
     if (
-      typeof firstName !== 'string' || !firstName.trim() ||
-      typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
-      typeof code !== 'string' || !/^\d{6}$/.test(code)
+      typeof firstName !== 'string' ||
+      !firstName.trim() ||
+      typeof email !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
+      typeof code !== 'string' ||
+      !/^\d{6}$/.test(code)
     ) {
       return invalidVerification(res);
     }
 
     const identity = normalizeIdentity({ firstName, email });
     const savedCode = await ChatAccessCode.findOne({ where: { email: identity.email } });
+
     if (!savedCode || new Date(savedCode.expiresAt).getTime() <= Date.now()) {
-      if (savedCode) await savedCode.destroy();
+      if (savedCode) {
+        await savedCode.destroy();
+      }
       return invalidVerification(res);
     }
 
     const expectedHash = Buffer.from(savedCode.codeHash, 'hex');
     const actualHash = Buffer.from(hashAccessCode(identity.email, code), 'hex');
     const identityMatches = savedCode.firstName === identity.firstName;
-    const codeMatches = expectedHash.length === actualHash.length && timingSafeEqual(expectedHash, actualHash);
+    const codeMatches =
+      expectedHash.length === actualHash.length && timingSafeEqual(expectedHash, actualHash);
+
     if (!identityMatches || !codeMatches) {
       const attempts = savedCode.attempts + 1;
+
       if (attempts >= CHAT_CODE_MAX_ATTEMPTS) {
         await savedCode.destroy();
       } else {
         await savedCode.update({ attempts });
       }
+
       return invalidVerification(res);
     }
 
@@ -130,7 +150,10 @@ export const verifyChatHistoryCode = async (req, res) => {
         WHERE lower(btrim(email)) = :email
         ORDER BY "createdAt" DESC
         LIMIT 1`,
-      { replacements: { email: identity.email }, type: QueryTypes.SELECT }
+      {
+        replacements: { email: identity.email },
+        type: QueryTypes.SELECT,
+      }
     );
 
     if (!session) {
@@ -143,7 +166,10 @@ export const verifyChatHistoryCode = async (req, res) => {
         WHERE "sessionId" = :sessionId
           AND role IN ('assistant', 'user')
         ORDER BY "createdAt" ASC, id ASC`,
-      { replacements: { sessionId: session.id }, type: QueryTypes.SELECT }
+      {
+        replacements: { sessionId: session.id },
+        type: QueryTypes.SELECT,
+      }
     );
 
     return res.json({ history: { sessionId: session.id, messages } });
@@ -153,7 +179,7 @@ export const verifyChatHistoryCode = async (req, res) => {
   }
 };
 
-// Sessions with their latest message, message count, type (AI/Human) and status (Active/Completed)
+// Sessions with their latest message, message count, type (AI/Human) and status (Active/Completed).
 const querySessions = (where = '', replacements = {}) =>
   sequelize.query(
     `SELECT s.id,
@@ -185,83 +211,127 @@ const querySessions = (where = '', replacements = {}) =>
       ${where}
       ORDER BY "lastActivityAt" DESC`,
     {
-      replacements: { activeMinutes: ACTIVE_WINDOW_MINUTES, nonHumanRoles: NON_HUMAN_ROLES, ...replacements },
-      type: QueryTypes.SELECT
+      replacements: {
+        activeMinutes: ACTIVE_WINDOW_MINUTES,
+        nonHumanRoles: NON_HUMAN_ROLES,
+        ...replacements,
+      },
+      type: QueryTypes.SELECT,
     }
   );
 
-const toSession = (r) => ({
-  id: r.id,
-  firstName: r.firstName,
-  email: r.email,
-  source: r.source,
-  createdAt: r.createdAt,
-  lastActivityAt: r.lastActivityAt,
-  messageCount: r.messageCount,
-  type: r.hasHumanReply ? 'Human' : 'AI',
-  status: r.isActive ? 'Active' : 'Completed',
-  lastMessage: r.lastCreatedAt
-    ? { role: r.lastRole, content: r.lastContent, createdAt: r.lastCreatedAt }
-    : null
+const toSession = (row) => ({
+  id: row.id,
+  firstName: row.firstName,
+  email: row.email,
+  source: row.source,
+  createdAt: row.createdAt,
+  lastActivityAt: row.lastActivityAt,
+  messageCount: row.messageCount,
+  type: row.hasHumanReply ? 'Human' : 'AI',
+  status: row.isActive ? 'Active' : 'Completed',
+  lastMessage: row.lastCreatedAt
+    ? {
+        role: row.lastRole,
+        content: row.lastContent,
+        createdAt: row.lastCreatedAt,
+      }
+    : null,
 });
 
+/*
+ * Save one or more chronological chat messages.
+ *
+ * Important:
+ * - Do not deduplicate by role + content. A user can legitimately repeat the same sentence.
+ * - Reuse the same sessionId for text and voice so admin history contains one conversation.
+ * - Update session identity if the session already exists.
+ */
 export const saveMessages = async (req, res) => {
   try {
-    const { sessionId, firstName, email, messages } = req.body;
+    const { sessionId, firstName, email, messages } = req.body ?? {};
+
     if (
       !UUID_PATTERN.test(sessionId ?? '') ||
-      typeof firstName !== 'string' || !firstName.trim() ||
-      typeof email !== 'string' || !email.trim() ||
-      !Array.isArray(messages) || messages.length === 0 ||
-      messages.some((message) =>
-        !['assistant', 'user', 'system'].includes(message?.role) ||
-        typeof message.content !== 'string'
+      typeof firstName !== 'string' ||
+      !firstName.trim() ||
+      typeof email !== 'string' ||
+      !email.trim() ||
+      !Array.isArray(messages) ||
+      messages.length === 0 ||
+      messages.some(
+        (message) =>
+          !['assistant', 'user', 'system'].includes(message?.role) ||
+          typeof message?.content !== 'string' ||
+          !message.content.trim()
       )
     ) {
-      return res.status(400).json({ error: 'Valid session details and messages are required' });
+      return res.status(400).json({
+        error: 'Valid session details and messages are required',
+      });
     }
 
-    await ChatSession.findOrCreate({
+    const normalizedFirstName = firstName.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const [session, created] = await ChatSession.findOrCreate({
       where: { id: sessionId },
       defaults: {
         id: sessionId,
-        firstName: firstName.trim(),
-        email: email.trim().toLowerCase()
-      }
+        firstName: normalizedFirstName,
+        email: normalizedEmail,
+      },
     });
 
-    await Promise.all(messages.map((message) => ChatMessage.findOrCreate({
-      where: { sessionId, role: message.role, content: message.content },
-      defaults: { sessionId, role: message.role, content: message.content }
-    })));
+    if (!created) {
+      await session.update({
+        firstName: normalizedFirstName,
+        email: normalizedEmail,
+      });
+    }
 
-    return res.status(201).json({ sessionId });
+    const messageRows = messages.map((message) => ({
+      sessionId,
+      role: message.role,
+      content: message.content.trim(),
+    }));
+
+    await ChatMessage.bulkCreate(messageRows);
+
+    return res.status(201).json({
+      sessionId,
+      saved: messageRows.length,
+    });
   } catch (error) {
     console.error('Failed to save chat messages:', error);
     return res.status(500).json({ error: 'Failed to save chat messages' });
   }
 };
 
-// Get all chat sessions, most recently active first
+// Get all chat sessions, most recently active first.
 export const getChatSessions = async (req, res) => {
   try {
     const rows = await querySessions();
-    res.json({ sessions: rows.map(toSession) });
+    return res.json({ sessions: rows.map(toSession) });
   } catch (error) {
     console.error('Error fetching chat sessions:', error);
-    res.status(500).json({ message: 'Error fetching chat sessions', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching chat sessions', error: error.message });
   }
 };
 
-// Get one chat session and all of its messages, oldest first
+// Get one chat session and all of its messages, oldest first.
 export const getChatSessionMessages = async (req, res) => {
   try {
     const { id } = req.params;
+
     if (!UUID_PATTERN.test(id)) {
       return res.status(400).json({ message: 'Invalid session id' });
     }
 
     const [session] = await querySessions('WHERE s.id = :id', { id });
+
     if (!session) {
       return res.status(404).json({ message: 'Chat session not found' });
     }
@@ -271,12 +341,17 @@ export const getChatSessionMessages = async (req, res) => {
          FROM chat_messages
         WHERE "sessionId" = :id
         ORDER BY "createdAt" ASC, id ASC`,
-      { replacements: { id }, type: QueryTypes.SELECT }
+      {
+        replacements: { id },
+        type: QueryTypes.SELECT,
+      }
     );
 
-    res.json({ session: toSession(session), messages });
+    return res.json({ session: toSession(session), messages });
   } catch (error) {
     console.error('Error fetching chat messages:', error);
-    res.status(500).json({ message: 'Error fetching chat messages', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching chat messages', error: error.message });
   }
 };
