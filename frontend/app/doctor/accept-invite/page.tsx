@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const router = useRouter()
   const params = useSearchParams()
   const token = params.get('token') || ''
@@ -103,5 +103,14 @@ export default function AcceptInvitePage() {
         </form>
       </div>
     </div>
+  )
+}
+
+// useSearchParams() must be inside a Suspense boundary, or `next build` fails
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={null}>
+      <AcceptInviteContent />
+    </Suspense>
   )
 }

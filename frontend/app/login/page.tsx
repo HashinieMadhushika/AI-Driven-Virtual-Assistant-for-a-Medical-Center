@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HeartPulse, Shield, Stethoscope } from 'lucide-react'
 
@@ -8,7 +8,7 @@ const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'
 
 type Role = 'admin' | 'doctor'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const params = useSearchParams()
 
@@ -204,5 +204,14 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// useSearchParams() must be inside a Suspense boundary, or `next build` fails
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   )
 }
