@@ -46,6 +46,10 @@ const Appointment = sequelize.define('Appointment', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  googleCalendarEventId: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
 }, {
   tableName: 'appointments',
   timestamps: true,

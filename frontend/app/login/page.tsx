@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HeartPulse, Shield, Stethoscope } from 'lucide-react'
 
@@ -10,20 +10,17 @@ function LoginContent() {
   const router = useRouter()
   const params = useSearchParams()
 
-  const [role, setRole] = useState<Role>('admin')
+  const [role, setRole] = useState<Role>(() => {
+    const queryRole = params.get('role')
+    return queryRole === 'doctor' || queryRole === 'admin'
+      ? queryRole
+      : 'admin'
+  })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
-  // ✅ auto select role from query param (?role=doctor)
-  useEffect(() => {
-    const r = params.get('role')
-    if (r === 'doctor' || r === 'admin') {
-      setRole(r)
-    }
-  }, [params])
 
   const canSubmit = useMemo(() => {
     if (!email || !password) return false
@@ -83,19 +80,21 @@ function LoginContent() {
         localStorage.setItem('user', JSON.stringify(data.doctor || data.user))
         router.push('/doctor/dashboard')
       }
-    } catch (err: any) {
-      setError(err?.message || 'Invalid login details.')
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Invalid login details.'
+      )
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f8fafc] to-[#e0f2fe] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-b from-[#f8fafc] to-[#e0f2fe] flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
         {/* Logo */}
         <div className="flex items-center justify-center mb-5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white shadow">
+          <div className="w-12 h-12 rounded-xl bg-linear-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white shadow">
             <HeartPulse className="w-6 h-6" />
           </div>
         </div>

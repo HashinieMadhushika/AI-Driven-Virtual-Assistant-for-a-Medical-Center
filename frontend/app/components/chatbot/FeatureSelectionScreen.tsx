@@ -208,7 +208,7 @@ function VoicePlayback({
         <Play className="h-3.5 w-3.5 fill-current" />
       </div>
 
-      <div className="flex items-end gap-[2px]" aria-hidden="true">
+      <div className="flex items-end gap-0.5" aria-hidden="true">
         <span className="h-2 w-[3px] rounded-full bg-teal-400" />
         <span className="h-4 w-[3px] rounded-full bg-teal-500" />
         <span className="h-3 w-[3px] rounded-full bg-teal-400" />

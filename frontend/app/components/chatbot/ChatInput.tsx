@@ -468,7 +468,7 @@ export default function ChatInput({
               void handleSubmit();
             }
           }}
-          className="min-h-[42px] min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-[10px] text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:bg-transparent"
+          className="min-h-[42px] min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:bg-transparent"
         />
 
         {/* VOICE BUTTON - ALWAYS VISIBLE */}

@@ -36,7 +36,6 @@ export const getTokensFromCode = async (code) => {
 };
 
 // Create an isolated OAuth client for one doctor's request.
-// Avoids sharing credentials between concurrent doctor requests.
 export const setCredentials = (tokens) => {
   const oauth2Client = createOAuthClient();
   oauth2Client.setCredentials(tokens);
@@ -71,7 +70,9 @@ function normalizeAttendees(attendees = []) {
   return normalized;
 }
 
-// Create calendar event
+// Create calendar event in the connected doctor's primary calendar.
+// Patient attendees are intentionally optional; this project sends normal
+// appointment emails to patients instead of requiring patient Calendar OAuth.
 export const createCalendarEvent = async (auth, eventDetails) => {
   const calendar = google.calendar({ version: 'v3', auth });
   const attendees = normalizeAttendees(eventDetails.attendees);
@@ -87,11 +88,10 @@ export const createCalendarEvent = async (auth, eventDetails) => {
       dateTime: eventDetails.endTime,
       timeZone: GOOGLE_CALENDAR_TIME_ZONE,
     },
-    attendees,
+    ...(attendees.length > 0 ? { attendees } : {}),
     reminders: {
       useDefault: false,
       overrides: [
-        { method: 'email', minutes: 24 * 60 },
         { method: 'popup', minutes: 30 },
       ],
     },
@@ -118,6 +118,22 @@ export const listUpcomingEvents = async (auth, maxResults = 10) => {
   });
 
   return response.data.items;
+};
+
+// Query busy periods from the connected doctor's primary calendar.
+export const listCalendarBusyPeriods = async (auth, timeMin, timeMax) => {
+  const calendar = google.calendar({ version: 'v3', auth });
+
+  const response = await calendar.freebusy.query({
+    requestBody: {
+      timeMin,
+      timeMax,
+      timeZone: GOOGLE_CALENDAR_TIME_ZONE,
+      items: [{ id: 'primary' }],
+    },
+  });
+
+  return response.data?.calendars?.primary?.busy || [];
 };
 
 // Update calendar event
@@ -154,7 +170,8 @@ export const updateCalendarEvent = async (auth, eventId, updates) => {
   }
 
   if (updates.attendees !== undefined) {
-    eventUpdates.attendees = normalizeAttendees(updates.attendees);
+    const attendees = normalizeAttendees(updates.attendees);
+    eventUpdates.attendees = attendees;
   }
 
   const updatedEvent = {
@@ -207,6 +224,7 @@ export default {
   setCredentials,
   createCalendarEvent,
   listUpcomingEvents,
+  listCalendarBusyPeriods,
   updateCalendarEvent,
   deleteCalendarEvent,
   refreshAccessToken,
