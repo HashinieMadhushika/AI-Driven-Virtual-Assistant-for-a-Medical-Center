@@ -6,6 +6,7 @@ import cors from 'cors';
 dotenv.config();
 console.log('✅ Environment loaded');
 
+// Routes
 import authRoutes from './src/routes/authRoutes.js';
 import doctorRoutes from './src/routes/doctorRoutes.js';
 import calendarRoutes from './src/routes/calendarRoutes.js';
@@ -16,8 +17,10 @@ import chatRoutes from './src/routes/chatRoutes.js';
 import assistantRoutes from './src/routes/assistantRoutes.js';
 import medicalDocumentRoutes from './src/routes/medicalDocumentRoutes.js';
 
+// Database
 import sequelize from './src/config/db.js';
 
+// Models
 import User from './src/models/User.js';
 import Doctor from './src/models/Doctor.js';
 import Patient from './src/models/Patient.js';
@@ -28,20 +31,35 @@ import ChatAccessCode from './src/models/ChatAccessCode.js';
 import HandoverRequest from './src/models/HandoverRequest.js';
 import MedicalDocument from './src/models/MedicalDocument.js';
 
-Doctor.hasMany(Appointment, { foreignKey: 'doctorId' });
-Appointment.belongsTo(Doctor, { foreignKey: 'doctorId' });
 
-Patient.hasMany(Appointment, { foreignKey: 'patientId' });
-Appointment.belongsTo(Patient, { foreignKey: 'patientId' });
+// ======================================================
+// MODEL RELATIONSHIPS
+// ======================================================
+
+Doctor.hasMany(Appointment, {
+  foreignKey: 'doctorId',
+});
+
+Appointment.belongsTo(Doctor, {
+  foreignKey: 'doctorId',
+});
+
+Patient.hasMany(Appointment, {
+  foreignKey: 'patientId',
+});
+
+Appointment.belongsTo(Patient, {
+  foreignKey: 'patientId',
+});
 
 ChatSession.hasMany(ChatMessage, {
   foreignKey: 'sessionId',
-  as: 'messages'
+  as: 'messages',
 });
 
 ChatMessage.belongsTo(ChatSession, {
   foreignKey: 'sessionId',
-  as: 'session'
+  as: 'session',
 });
 
 ChatSession.hasMany(HandoverRequest, {
@@ -74,15 +92,25 @@ MedicalDocument.belongsTo(Patient, {
   as: 'patient',
 });
 
+
+// ======================================================
+// EXPRESS APP
+// ======================================================
+
 const app = express();
 
 const PORT = process.env.PORT || 5000;
 
+
+// ======================================================
+// MIDDLEWARE
+// ======================================================
+
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
+      'http://localhost:3000',
+      'http://localhost:3001',
     ],
     credentials: true,
   })
@@ -90,109 +118,148 @@ app.use(
 
 app.use(
   express.json({
-    limit: "20mb",
+    limit: '20mb',
   })
 );
 
-app.get("/api/test", (req, res) => {
+
+// ======================================================
+// TEST ROUTE
+// ======================================================
+
+app.get('/api/test', (req, res) => {
   res.json({
-    msg: "Backend is running!",
+    msg: 'Backend is running!',
   });
 });
 
+
+// ======================================================
+// API ROUTES
+// ======================================================
+
 app.use('/api/auth', authRoutes);
+
 app.use('/api/doctors', doctorRoutes);
+
 app.use('/api/calendar', calendarRoutes);
+
 app.use('/api/appointments', appointmentRoutes);
+
 app.use('/api/contact', contactRoutes);
+
 app.use('/api/dashboard', dashboardRoutes);
+
 app.use('/api/chat', chatRoutes);
-app.use('/api/medical-documents', medicalDocumentRoutes);
+
+app.use(
+  '/api/medical-documents',
+  medicalDocumentRoutes
+);
 
 app.use(
   '/api/assistant',
   assistantRoutes
 );
 
-(async () => {
-  try {
-    console.log(
-      '🔧 Starting database sync...'
-    );
 
-    await sequelize.sync();
+// ======================================================
+// LOCAL DEVELOPMENT SERVER
+// ======================================================
 
-    console.log(
-      '✅ Database synced successfully'
-    );
+// Vercel manages the HTTP server itself.
+//
+// Therefore:
+// Local machine -> sequelize.sync() + app.listen()
+// Vercel        -> export Express app only
 
-    console.log(
-      '✅ All models ready'
-    );
+if (!process.env.VERCEL) {
+  (async () => {
+    try {
+      console.log('🔧 Starting database sync...');
 
-    console.log(
-      '🚀 Starting Express server...'
-    );
+      await sequelize.sync();
 
-    const server = app.listen(
-      PORT,
-      () => {
-        console.log(
-          `✅ Server running on http://localhost:${PORT}`
-        );
+      console.log(
+        '✅ Database synced successfully'
+      );
 
-        console.log(
-          '📍 Press Ctrl+C to stop the server'
-        );
+      console.log(
+        '✅ All models ready'
+      );
 
-        console.log(
-          '🤖 n8n assistant configured:',
-          Boolean(
-            process.env.N8N_ASSISTANT_WEBHOOK
-          )
-        );
-      }
-    );
+      console.log(
+        '🚀 Starting Express server...'
+      );
 
-    server.on(
-      'error',
-      (err) => {
+      const server = app.listen(
+        PORT,
+        () => {
+          console.log(
+            `✅ Server running on http://localhost:${PORT}`
+          );
+
+          console.log(
+            '📍 Press Ctrl+C to stop the server'
+          );
+
+          console.log(
+            '🤖 n8n assistant configured:',
+            Boolean(
+              process.env.N8N_ASSISTANT_WEBHOOK
+            )
+          );
+        }
+      );
+
+      server.on('error', (err) => {
         console.error(
           '❌ Server error:',
           err
         );
 
         process.exit(1);
-      }
-    );
+      });
 
-    process.on(
-      'unhandledRejection',
-      (reason) => {
-        console.error(
-          '❌ Unhandled Rejection:',
-          reason
-        );
-      }
-    );
+      process.on(
+        'unhandledRejection',
+        (reason) => {
+          console.error(
+            '❌ Unhandled Rejection:',
+            reason
+          );
+        }
+      );
 
-    process.on(
-      'uncaughtException',
-      (err) => {
-        console.error(
-          '❌ Uncaught Exception:',
-          err
-        );
+      process.on(
+        'uncaughtException',
+        (err) => {
+          console.error(
+            '❌ Uncaught Exception:',
+            err
+          );
 
-        process.exit(1);
-      }
-    );
-  } catch (err) {
-    console.error(
-      '❌ Sync error:',
-      err
-    );
+          process.exit(1);
+        }
+      );
 
-    process.exit(1);
-  }
-})();
+    } catch (err) {
+      console.error(
+        '❌ Sync error:',
+        err
+      );
+
+      process.exit(1);
+    }
+  })();
+}
+
+
+// ======================================================
+// VERCEL EXPORT
+// ======================================================
+
+// Vercel imports this Express application.
+// Do not call app.listen() on Vercel.
+
+export default app;
