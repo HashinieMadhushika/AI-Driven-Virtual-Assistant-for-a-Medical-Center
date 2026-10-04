@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from rag.src.query_faq_qdrant import retrieve_faq
+from src.query_faq_qdrant import retrieve_faq
 
 
 # --------------------------------------------------
