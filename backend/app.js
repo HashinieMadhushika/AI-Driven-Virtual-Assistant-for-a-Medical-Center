@@ -111,6 +111,7 @@ app.use(
     origin: [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://medicenter-ai-driven.vercel.app',
     ],
     credentials: true,
   })
