@@ -2,6 +2,13 @@
 name = "medicare-rag-api"
 version = "1.0.0"
 requires-python = ">=3.12"
+dependencies = [
+    "sentence-transformers==5.3.0",
+    "qdrant-client==1.19.1",
+    "python-dotenv==1.2.2",
+    "fastapi==0.135.1",
+    "uvicorn==0.42.0"
+]
 
 [tool.vercel]
 entrypoint = "api:app"
