@@ -34,11 +34,12 @@ export default function AdminDoctorsPage() {
   const isSuccess = msg.includes("✅");
 
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
+    // Header stays fixed; only the content below it scrolls
+    <div className="h-full flex flex-col gap-6 max-w-7xl mx-auto lg:p-2">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="shrink-0 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3">
             <Stethoscope className="text-teal-600" size={32} />
             Doctors Management
           </h1>
@@ -57,43 +58,45 @@ export default function AdminDoctorsPage() {
         </button>
       </div>
 
-      {/* Messages */}
-      {msg && (
-        <div
-          className={`p-4 rounded-xl shadow-sm border flex items-start gap-3 ${
-            isSuccess ? "bg-green-50 text-green-800 border-green-200" : "bg-red-50 text-red-800 border-red-200"
-          }`}
-        >
-          <span className="text-xl">{isSuccess ? "✅" : "❌"}</span>
-          <p className="flex-1 font-medium">{msg.replaceAll("✅", "").replaceAll("❌", "").trim()}</p>
-          <button onClick={() => setMsg("")} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X size={18} />
-          </button>
+      <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 pb-1 space-y-6">
+        {/* Messages */}
+        {msg && (
+          <div
+            className={`p-4 rounded-xl shadow-sm border flex items-start gap-3 ${
+              isSuccess ? "bg-green-50 text-green-800 border-green-200" : "bg-red-50 text-red-800 border-red-200"
+            }`}
+          >
+            <span className="text-xl">{isSuccess ? "✅" : "❌"}</span>
+            <p className="flex-1 font-medium">{msg.replaceAll("✅", "").replaceAll("❌", "").trim()}</p>
+            <button onClick={() => setMsg("")} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
+        {showAddForm && (
+          <AddDoctorForm
+            onMessage={setMsg}
+            onAdded={() => {
+              setShowAddForm(false);
+              fetchDoctors();
+            }}
+          />
+        )}
+
+        {/* Doctors Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {doctors.map((doctor) => (
+            <DoctorCard key={doctor.id} doctor={doctor} onMessage={setMsg} onChanged={fetchDoctors} />
+          ))}
         </div>
-      )}
 
-      {showAddForm && (
-        <AddDoctorForm
-          onMessage={setMsg}
-          onAdded={() => {
-            setShowAddForm(false);
-            fetchDoctors();
-          }}
-        />
-      )}
-
-      {/* Doctors Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {doctors.map((doctor) => (
-          <DoctorCard key={doctor.id} doctor={doctor} onMessage={setMsg} onChanged={fetchDoctors} />
-        ))}
+        {doctors.length === 0 && !showAddForm && (
+          <div className="text-center py-12">
+            <p className="text-slate-500">No doctors found. Add your first doctor to get started.</p>
+          </div>
+        )}
       </div>
-
-      {doctors.length === 0 && !showAddForm && (
-        <div className="text-center py-12">
-          <p className="text-slate-500">No doctors found. Add your first doctor to get started.</p>
-        </div>
-      )}
     </div>
   );
 }

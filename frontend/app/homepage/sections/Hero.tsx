@@ -12,8 +12,8 @@ const Hero = ({ onOpenChat }: HeroProps) => {
   const router = useRouter();
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <div className="grid md:grid-cols-2 gap-12 items-center">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+      <div className="grid md:grid-cols-2 gap-10 md:gap-12 items-center">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-teal-200 bg-teal-50 text-teal-800 text-xs font-semibold">
             <img
@@ -22,10 +22,10 @@ const Hero = ({ onOpenChat }: HeroProps) => {
               className="w-4 h-4"
             /> AI-first medical operations
           </div>
-          <h1 className="mt-6 text-4xl font-extrabold text-slate-900 leading-tight">
+          <h1 className="mt-6 text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
             A seamless care hub for admins, doctors, and AI-led patient journeys.
           </h1>
-          <p className="mt-5 text-lg text-slate-600">
+          <p className="mt-5 text-base sm:text-lg text-slate-600">
             Centralize appointments, calendars, and pharmacy workflows while the AI assistant handles patient requests end-to-end.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">

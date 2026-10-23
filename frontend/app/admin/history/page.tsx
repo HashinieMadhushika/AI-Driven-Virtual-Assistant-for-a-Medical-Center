@@ -49,17 +49,18 @@ export default function AdminChatHistoryPage() {
   const closePopup = useCallback(() => setSelected(null), [])
 
   return (
-    <main className="flex-1 overflow-y-auto p-8">
-      <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-2xl shadow-sm border border-slate-100 p-6">
+    // Fills the admin content area; only the table body scrolls, not the page
+    <div className="h-full flex flex-col lg:p-2">
+      <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-br from-cyan-50 to-teal-50 rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6">
         {/* Title + Filters */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="shrink-0 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-800">
               Live &amp; Recent Chats
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {FILTERS.map(({ value, label }) => (
               <button
                 key={value}
@@ -78,13 +79,13 @@ export default function AdminChatHistoryPage() {
           </div>
         </div>
 
-        {error && <p className="mt-4 text-sm text-red-600">❌ {error}</p>}
+        {error && <p className="shrink-0 mt-4 text-sm text-red-600">❌ {error}</p>}
 
         {/* Table */}
-        <div className="mt-6 overflow-x-auto">
-          <div className="min-w-[780px] bg-white rounded-xl border border-slate-100 shadow-sm">
-            {/* Header row */}
-            <div className="grid grid-cols-6 gap-4 px-6 py-3 text-xs font-semibold text-slate-500 bg-slate-50 rounded-t-xl">
+        <div className="mt-6 flex-1 min-h-0 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm">
+          <div className="min-w-[780px]">
+            {/* Header row stays visible while the rows scroll */}
+            <div className="sticky top-0 z-10 grid grid-cols-6 gap-4 px-6 py-3 text-xs font-semibold text-slate-500 bg-slate-50">
               <div>Chat ID</div>
               <div>Patient</div>
               <div>Type</div>
@@ -138,9 +139,7 @@ export default function AdminChatHistoryPage() {
         </div>
       </div>
 
-      <div className="h-16" />
-
       {selected && <ChatPopup session={selected} onClose={closePopup} />}
-    </main>
+    </div>
   )
 }

@@ -36,10 +36,10 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
   };
 
   return (
-    <div className="fixed bottom-20 inset-x-3 sm:inset-x-auto sm:right-6 z-50">
-      <div className="w-full sm:w-[900px] sm:max-w-[calc(100vw-3rem)] h-[80vh] max-h-[min(740px,calc(100vh_-_6rem))] bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-6 z-50">
+      <div className="w-full h-dvh sm:w-[900px] sm:max-w-[calc(100vw-3rem)] sm:h-[80vh] sm:max-h-[min(740px,calc(100vh_-_6rem))] bg-white sm:rounded-3xl shadow-2xl sm:border border-gray-200 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white p-4 flex justify-between items-center">
+        <div className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-3 sm:p-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
               <img
@@ -67,7 +67,7 @@ export default function ChatbotPopup({ open, setOpen }: Props) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-4 sm:p-6 bg-gradient-to-br from-teal-50 via-white to-emerald-50">
+        <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-3 sm:p-6 bg-gradient-to-br from-teal-50 via-white to-emerald-50">
           {screen === "welcome" && (
             <WelcomeScreen onNext={() => setScreen("userinfo")} />
           )}

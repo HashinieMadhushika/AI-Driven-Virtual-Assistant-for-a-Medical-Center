@@ -170,7 +170,7 @@ function DoctorProfileContent() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
           Profile & Settings
         </h1>
 
@@ -181,7 +181,7 @@ function DoctorProfileContent() {
         </p>
       </div>
 
-      <div className="flex items-center space-x-6 border-b border-gray-200">
+      <div className="flex items-center gap-2 sm:gap-6 overflow-x-auto border-b border-gray-200">
         {TABS.map(
           ({
             id,
@@ -194,7 +194,7 @@ function DoctorProfileContent() {
               onClick={() =>
                 setActiveTab(id)
               }
-              className={`flex items-center space-x-2 px-4 py-3 font-semibold transition-all ${
+              className={`flex shrink-0 items-center space-x-2 px-3 sm:px-4 py-3 font-semibold whitespace-nowrap transition-all ${
                 activeTab === id
                   ? 'border-b-2 border-teal-700 text-teal-700'
                   : 'text-slate-500 hover:text-slate-700'

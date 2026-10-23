@@ -51,15 +51,15 @@ const Contact = () => {
   };
 
   return (
-    <section id="contact" className="scroll-mt-20 py-16 bg-linear-to-br from-teal-50 to-cyan-50">
+    <section id="contact" className="scroll-mt-20 py-12 sm:py-16 bg-linear-to-br from-teal-50 to-cyan-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-center text-slate-900 mb-4">Contact us</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-center text-slate-900 mb-4">Contact us</h2>
         <p className="text-center text-slate-600 mb-12">
           Questions about MediCare AI? We respond within one business day.
         </p>
 
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white p-8 rounded-xl shadow-lg">
+          <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Write to us</h3>
             
             {submitMessage && (

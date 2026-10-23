@@ -417,17 +417,17 @@ export default function DoctorAppointments() {
                   key={
                     appointment.id
                   }
-                  className="p-6 transition-colors hover:bg-slate-50"
+                  className="p-4 sm:p-6 transition-colors hover:bg-slate-50"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex flex-1 items-center space-x-4">
+                    <div className="flex flex-1 flex-wrap items-center gap-4">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-teal-700 to-cyan-500 text-lg font-bold text-white">
                         {
                           patientInitial
                         }
                       </div>
 
-                      <div className="flex-1">
+                      <div className="min-w-[10rem] flex-1">
                         <h3 className="text-lg font-semibold text-slate-800">
                           {
                             patientName
@@ -441,7 +441,7 @@ export default function DoctorAppointments() {
                         </p>
                       </div>
 
-                      <div className="flex items-center space-x-8">
+                      <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
                         <div className="flex items-center space-x-2 text-slate-700">
                           <svg
                             className="h-5 w-5 text-slate-400"
@@ -534,7 +534,7 @@ export default function DoctorAppointments() {
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <span
                           className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusColor(
                             appointment.status
@@ -545,7 +545,7 @@ export default function DoctorAppointments() {
                           }
                         </span>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {appointment.status ===
                             'Pending' && (
                             <>
@@ -635,7 +635,7 @@ export default function DoctorAppointments() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
           Appointments
         </h1>
 
@@ -645,8 +645,8 @@ export default function DoctorAppointments() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <div className="flex items-center space-x-4">
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-6 shadow-sm">
+        <div className="flex items-center gap-3 sm:gap-4">
           <div className="relative flex-1">
             <svg
               className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400"
@@ -685,7 +685,7 @@ export default function DoctorAppointments() {
                 !filterOpen
               )
             }
-            className="flex items-center space-x-2 rounded-xl border border-black/10 px-6 py-3 transition-colors hover:bg-slate-50"
+            className="flex items-center space-x-2 rounded-xl border border-black/10 px-4 sm:px-6 py-3 transition-colors hover:bg-slate-50"
           >
             <svg
               className="h-5 w-5 text-slate-600"
@@ -701,7 +701,7 @@ export default function DoctorAppointments() {
               />
             </svg>
 
-            <span className="font-medium text-slate-700">
+            <span className="hidden sm:inline font-medium text-slate-700">
               Filter
             </span>
           </button>

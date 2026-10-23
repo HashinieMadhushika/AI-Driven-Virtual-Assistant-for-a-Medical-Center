@@ -52,8 +52,8 @@ function ConnectCalendar() {
   };
 
   return (
-    <div className="bg-slate-50 border border-black/10 rounded-2xl p-8">
-      <h3 className="text-2xl font-bold text-gray-800 text-center mb-8">Google Calendar Integration</h3>
+    <div className="bg-slate-50 border border-black/10 rounded-2xl p-5 sm:p-8">
+      <h3 className="text-xl sm:text-2xl font-bold text-gray-800 text-center mb-8">Google Calendar Integration</h3>
 
       <div className="flex justify-center mb-6">
         <div className="w-20 h-20 bg-teal-700 rounded-2xl flex items-center justify-center shadow-sm">
@@ -69,7 +69,7 @@ function ConnectCalendar() {
       </div>
 
       <div className="flex justify-center">
-        <button onClick={handleConnect} className={`px-8 py-4 ${primaryButtonClass} space-x-3`}>
+        <button onClick={handleConnect} className={`px-6 py-3 sm:px-8 sm:py-4 ${primaryButtonClass} space-x-3`}>
           <GoogleIcon />
           <span>Connect with Google</span>
         </button>
@@ -92,7 +92,7 @@ function MonthView({ events, onDayClick }: MonthViewProps) {
   const shiftMonth = (delta: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-lg font-semibold text-gray-800">Calendar View</h4>
         <div className="flex items-center space-x-2">
@@ -128,7 +128,7 @@ function MonthView({ events, onDayClick }: MonthViewProps) {
               onClick={() => onDayClick(date)}
               title={title}
               aria-label={`${day}, ${title}`}
-              className={`min-h-[60px] p-2 rounded-lg relative text-sm ${
+              className={`min-h-[44px] sm:min-h-[60px] p-1 sm:p-2 rounded-lg relative text-sm ${
                 isToday ? 'bg-teal-700 text-white font-bold' : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -163,10 +163,10 @@ function EventListItem({ event, onEdit, onDelete }: EventListItemProps) {
   return (
     <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h5 className="font-semibold text-gray-800">{event.summary || 'No Title'}</h5>
           {event.description && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{event.description}</p>}
-          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
             <span className="flex items-center">
               <Calendar className="w-3 h-3 mr-1" />
               {start.toLocaleDateString()}
@@ -179,7 +179,7 @@ function EventListItem({ event, onEdit, onDelete }: EventListItemProps) {
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-2 ml-4">
+        <div className="flex shrink-0 items-center space-x-1 sm:space-x-2 ml-2 sm:ml-4">
           <button onClick={onEdit} className="p-2 text-teal-700 hover:bg-teal-50 rounded-lg transition-colors" title="Edit event">
             <Pencil className="w-4 h-4" />
           </button>
@@ -272,11 +272,11 @@ export default function CalendarTab() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-8">
       <div className="max-w-7xl mx-auto">
         {connected ? (
           <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center justify-between">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
                   <Check className="w-6 h-6 text-white" />
@@ -297,8 +297,8 @@ export default function CalendarTab() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <MonthView events={events} onDayClick={openNewEvent} />
 
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <h4 className="text-lg font-semibold text-gray-800">Upcoming Events</h4>
                   <div className="flex items-center space-x-2">
                     <button
