@@ -24,7 +24,7 @@ const HomePage = () => {
 
       <Header />
 
-      <main className="pb-16">
+      <main className="pb-24 sm:pb-16">
         <Hero onOpenChat={() => setChatbotOpen(true)} />
         <Services />
         <Vision />
