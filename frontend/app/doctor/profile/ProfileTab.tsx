@@ -45,8 +45,8 @@ function ProfileField({ id, label, icon: Icon, displayValue, editing, type = 'te
     <div>
       <p className={labelClass}>{label}</p>
       <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
-        <Icon className="w-5 h-5 text-gray-400" />
-        <span className="text-gray-800">{displayValue}</span>
+        <Icon className="w-5 h-5 shrink-0 text-gray-400" />
+        <span className="min-w-0 break-words text-gray-800">{displayValue}</span>
       </div>
     </div>
   );
@@ -137,9 +137,10 @@ export default function ProfileTab({ doctor, onDoctorUpdate }: ProfileTabProps) 
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="bg-slate-200 h-32"></div>
-      <div className="px-8 pb-8">
-        <div className="flex items-end -mt-16 mb-6">
+      <div className="bg-slate-200 h-24 sm:h-32"></div>
+      <div className="px-4 pb-6 sm:px-8 sm:pb-8">
+        {/* Stacked and centred on phones, one row from sm up */}
+        <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-end sm:gap-0 sm:text-left -mt-16 mb-6">
           <div className="relative">
             <div className="relative w-32 h-32 bg-teal-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden">
               {doctor.profileImageUrl ? (
@@ -170,11 +171,11 @@ export default function ProfileTab({ doctor, onDoctorUpdate }: ProfileTabProps) 
               disabled={uploadingImage}
             />
           </div>
-          <div className="ml-6 mb-4">
-            <h2 className="text-2xl font-bold text-slate-800">Dr. {doctor.name}</h2>
+          <div className="sm:ml-6 sm:mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Dr. {doctor.name}</h2>
             <p className="text-slate-600">{doctor.specialization}</p>
           </div>
-          <div className="ml-auto mb-4">
+          <div className="sm:ml-auto sm:mb-4">
             {isEditing ? (
               <div className="flex space-x-3">
                 <button onClick={() => setIsEditing(false)} className={`px-6 py-2 ${secondaryButtonClass}`}>
@@ -194,7 +195,7 @@ export default function ProfileTab({ doctor, onDoctorUpdate }: ProfileTabProps) 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mt-6 sm:mt-8">
           <div className="space-y-6">
             <ProfileField
               id="name"

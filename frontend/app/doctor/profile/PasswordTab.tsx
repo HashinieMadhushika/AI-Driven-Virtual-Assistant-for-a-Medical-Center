@@ -65,7 +65,7 @@ export default function PasswordTab() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-8">
       <div className="max-w-2xl">
         <div className="flex items-start space-x-3 p-4 bg-teal-50 border border-teal-200 rounded-xl mb-6">
           <Info className="w-5 h-5 text-teal-700 mt-0.5 shrink-0" />
@@ -91,12 +91,12 @@ export default function PasswordTab() {
             </div>
           ))}
 
-          <div className="flex items-center space-x-3 pt-4">
-            <button onClick={handleSubmit} disabled={saving} className={`px-6 py-3 ${primaryButtonClass}`}>
+          <div className="flex flex-wrap items-center gap-3 pt-4">
+            <button onClick={handleSubmit} disabled={saving} className={`px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base ${primaryButtonClass}`}>
               <Lock className="w-5 h-5" />
               <span>{saving ? 'Updating...' : 'Update Password'}</span>
             </button>
-            <button onClick={() => setPasswords(EMPTY_PASSWORDS)} className={`px-6 py-3 ${secondaryButtonClass}`}>
+            <button onClick={() => setPasswords(EMPTY_PASSWORDS)} className={`px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base ${secondaryButtonClass}`}>
               Cancel
             </button>
           </div>

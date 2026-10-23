@@ -16,19 +16,19 @@ const ChatbotButton = ({ onClick }: ChatbotButtonProps) => {
 
   return (
     <div
-      className={`fixed cursor-pointer transition-all duration-1000 ease-out ${
+      className={`fixed z-40 cursor-pointer transition-all duration-1000 ease-out ${
         chatbotAnimated
-          ? "bottom-20 right-8 opacity-100"
-          : "bottom-0 right-8 opacity-0 translate-y-20"
+          ? "bottom-24 sm:bottom-20 right-4 sm:right-8 opacity-100"
+          : "bottom-0 right-4 sm:right-8 opacity-0 translate-y-20"
       }`}
       onClick={onClick}
     >
       <div className="relative group">
-        <div className="w-16 h-16 bg-linear-to-br from-teal-600 to-cyan-400 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-linear-to-br from-teal-600 to-cyan-400 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer">
           <img
             src="/images/ai-assistant.png"
             alt="AI assistant"
-            className="w-14 h-14"
+            className="w-12 h-12 sm:w-14 sm:h-14"
           />
         </div>
         <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />

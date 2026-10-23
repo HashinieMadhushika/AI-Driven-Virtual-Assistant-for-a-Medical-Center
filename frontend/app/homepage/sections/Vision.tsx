@@ -2,11 +2,11 @@ import React from "react";
 
 const Vision = () => {
   return (
-    <section id="vision" className="scroll-mt-20 py-16 bg-linear-to-br from-teal-50 via-cyan-50 to-white">
+    <section id="vision" className="scroll-mt-20 py-12 sm:py-16 bg-linear-to-br from-teal-50 via-cyan-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-12 items-center">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 mb-6">Our vision</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-6">Our vision</h2>
             <p className="text-slate-700 mb-6 leading-relaxed">
               We create a seamless healthcare experience by connecting patients with the right care quickly, while supporting providers with intelligent automation.
             </p>

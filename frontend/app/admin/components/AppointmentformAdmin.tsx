@@ -100,23 +100,24 @@ const NewAppointmentForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-cyan-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+    // Fits the admin content area; the card header stays fixed and only the form scrolls
+    <div className="h-full bg-gradient-to-br from-teal-50 via-blue-50 to-cyan-50 rounded-2xl flex items-center justify-center p-2 sm:p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-8 py-6">
+        <div className="shrink-0 bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-5 py-4 sm:px-8 sm:py-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
               <Calendar className="text-white" size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Schedule New Appointment</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Schedule New Appointment</h2>
               <p className="text-teal-100 text-sm">Fill in the patient and appointment details</p>
             </div>
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="p-8 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8 space-y-6">
           {/* Patient Information */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -277,18 +278,18 @@ const NewAppointmentForm = () => {
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-4 pt-4">
+          <div className="flex gap-3 sm:gap-4 pt-2 sm:pt-4">
             <button
               onClick={() => setFormData(emptyForm)}
               disabled={submitting}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="shrink-0 sm:flex-1 whitespace-nowrap px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Clear Form
             </button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 whitespace-nowrap px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Scheduling...' : 'Schedule Appointment'}
             </button>

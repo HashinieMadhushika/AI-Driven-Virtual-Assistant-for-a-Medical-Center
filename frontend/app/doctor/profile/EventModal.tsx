@@ -115,7 +115,7 @@ export default function EventModal({ eventId, initialValues, onClose, onSaved }:
             <textarea rows={3} placeholder="Event details..." {...bind('description')} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="event-startDate" className={labelClass}>Start Date <Required /></label>
               <input type="date" {...bind('startDate')} />
@@ -126,7 +126,7 @@ export default function EventModal({ eventId, initialValues, onClose, onSaved }:
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="event-endDate" className={labelClass}>End Date</label>
               <input type="date" {...bind('endDate')} />

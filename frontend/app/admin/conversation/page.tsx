@@ -789,8 +789,9 @@ export default function AdminActiveConversationPage() {
     };
 
   return (
-    <main className="flex-1 overflow-y-auto p-8">
-      <div className="mb-6">
+    // On desktop the page fits the content area; the queue and messages scroll on their own
+    <div className="flex flex-col lg:h-full lg:p-2">
+      <div className="mb-6 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
             <Headphones className="h-5 w-5" />
@@ -809,13 +810,13 @@ export default function AdminActiveConversationPage() {
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mb-4 shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-6 lg:flex-1 lg:min-h-0 lg:grid-cols-[340px_1fr] lg:grid-rows-[minmax(0,1fr)]">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex lg:min-h-0 lg:flex-col">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-slate-800">
               Support Queue
@@ -828,7 +829,7 @@ export default function AdminActiveConversationPage() {
             ) : null}
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {loadingQueue ? (
               <div className="text-sm text-slate-500">
                 Loading requests…
@@ -909,14 +910,14 @@ export default function AdminActiveConversationPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex lg:min-h-0 lg:flex-col">
           {!selectedRequest ? (
-            <div className="flex min-h-[420px] items-center justify-center text-sm text-slate-500">
+            <div className="flex min-h-[420px] lg:flex-1 items-center justify-center text-sm text-slate-500">
               Select a human support request.
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
                 <div>
                   <div className="font-semibold text-slate-800">
                     {
@@ -977,7 +978,7 @@ export default function AdminActiveConversationPage() {
                 ref={
                   messagesBoxRef
                 }
-                className="mt-4 h-[52vh] space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-4"
+                className="mt-4 h-[52vh] space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-4 lg:h-auto lg:min-h-0 lg:flex-1"
               >
                 {messages.length ===
                 0 ? (
@@ -1051,7 +1052,7 @@ export default function AdminActiveConversationPage() {
                 )}
               </div>
 
-              <div className="mt-4">
+              <div className="mt-4 shrink-0">
                 {selectedRequest.status ===
                 "Active" ? (
                   <div className="flex gap-2">
@@ -1137,6 +1138,6 @@ export default function AdminActiveConversationPage() {
           )}
         </section>
       </div>
-    </main>
+    </div>
   );
 }

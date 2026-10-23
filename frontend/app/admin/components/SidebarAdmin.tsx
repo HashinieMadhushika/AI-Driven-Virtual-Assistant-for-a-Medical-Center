@@ -51,38 +51,69 @@ const items = [
   },
 ];
 
-export default function SidebarAdmin() {
+type SidebarAdminProps = {
+  open: boolean;
+  onClose: () => void;
+};
+
+export default function SidebarAdmin({ open, onClose }: SidebarAdminProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 shrink-0 h-full overflow-y-auto bg-white border-r border-black/10">
-      <div className="px-4 pt-4 font-extrabold text-slate-700">
-        Admin
-      </div>
+    <>
+      {/* Backdrop for the mobile drawer */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
-      <nav className="p-4 space-y-2">
-        {items.map((it) => {
-          const active =
-            pathname === it.href || pathname.startsWith(it.href + "/");
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-50 w-64 shrink-0 overflow-y-auto bg-white border-r border-black/10 transition-transform duration-200",
+          "lg:static lg:z-auto lg:h-full lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+        ].join(" ")}
+      >
+        <div className="px-4 pt-4 flex items-center justify-between font-extrabold text-slate-700">
+          Admin
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-slate-100 lg:hidden"
+            aria-label="Close menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          return (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={[
-                "flex items-center gap-3 px-3 py-3 rounded-xl border transition",
-                active
-                  ? "bg-teal-700 text-white border-teal-700"
-                  : "bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-black/10",
-              ].join(" ")}
-            >
-              {it.icon}
-              <span className="font-medium">{it.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-    </aside>
+        <nav className="p-4 space-y-2">
+          {items.map((it) => {
+            const active =
+              pathname === it.href || pathname.startsWith(it.href + "/");
+
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                onClick={onClose}
+                className={[
+                  "flex items-center gap-3 px-3 py-3 rounded-xl border transition",
+                  active
+                    ? "bg-teal-700 text-white border-teal-700"
+                    : "bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-black/10",
+                ].join(" ")}
+              >
+                {it.icon}
+                <span className="font-medium">{it.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
   );
 }
-
